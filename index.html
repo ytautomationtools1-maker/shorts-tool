@@ -159,7 +159,7 @@ input[type=checkbox]{width:26px;height:26px;accent-color:var(--accent)}
   <header class="top">
     <div>
       <h1>Shorts Video Tool — Auto Bengali Transcription</h1>
-      <p class="sub">ভয়েস আপলোড করলেই বাংলা সাবটাইটেল তৈরি। সবকিছু আপনার ফোনের ব্রাউজারেই চলে, অডিও কোথাও আপলোড হয় না। <span class="mono">সংস্করণ v4</span></p>
+      <p class="sub">ভয়েস আপলোড করলেই বাংলা সাবটাইটেল তৈরি। সবকিছু আপনার ফোনের ব্রাউজারেই চলে, অডিও কোথাও আপলোড হয় না। <span class="mono">সংস্করণ v5</span></p>
     </div>
     <button id="themeBtn" class="btn sm icon" aria-label="থিম বদলান" title="থিম">🌓</button>
   </header>
@@ -241,6 +241,10 @@ input[type=checkbox]{width:26px;height:26px;accent-color:var(--accent)}
     <div id="chips" class="chips"></div>
     <div class="legend" id="chipLegend" hidden>ধূসর = অপেক্ষায় · নীল = চলছে · সবুজ = শেষ · লাল = ব্যর্থ (চাপলে আবার চেষ্টা হবে)। অন্য অংশ চাপলে সেখানে প্লেব্যাক যাবে।</div>
     <div id="errBox" class="banner err" hidden></div>
+    <details id="rawBox" style="margin-top:12px" hidden>
+      <summary style="font-weight:600;cursor:pointer;min-height:36px">🔎 মডেলের কাঁচা আউটপুট (সমস্যা হলে এখানে দেখুন)</summary>
+      <div id="rawBody" style="margin-top:8px"></div>
+    </details>
   </section>
 
   <!-- 5. EDITOR -->
@@ -587,21 +591,22 @@ function cleanSegments(raw, ch, opts) {
   const aDur = ch.aEnd - ch.aStart;
   let prevNorm = '';
   for (const r of (raw || [])) {
+    const st = opts.stats;
     const text = collapseLoops(String(r.text || '').replace(/\s+/g, ' ').trim());
-    if (!text) continue;
-    if (opts.bnOnly && !/[\u0980-\u09FF]/.test(text)) continue;
+    if (!text) { if (st) st.empty++; continue; }
+    if (opts.bnOnly && !/[\u0980-\u09FF]/.test(text)) { if (st) st.nonBn++; continue; }
     let s = typeof r.s === 'number' ? r.s : 0;
     let e = typeof r.e === 'number' ? r.e : aDur;
     if (e <= s) e = Math.min(aDur, s + 1);
     s += ch.aStart; e += ch.aStart;
     const mid = (s + e) / 2;
-    if (mid < ch.ownStart || mid >= ch.ownEnd) continue;        // neighbour chunk owns it
+    if (mid < ch.ownStart || mid >= ch.ownEnd) { if (st) st.owner++; continue; }        // neighbour chunk owns it
     s = Math.max(0, s);
     if (opts.total) e = Math.min(e, opts.total);
     if (e > ch.ownEnd && ch.ownEnd > s + 0.2) e = ch.ownEnd;      // do not run into the next chunk
     if (e <= s) e = s + 0.2;
     const norm = text.replace(/[\s।,.!?]/g, '');
-    if (norm && norm === prevNorm) continue;                     // repeated identical segment
+    if (norm && norm === prevNorm) { if (st) st.dup++; continue; }                     // repeated identical segment
     prevNorm = norm;
     out.push({ s: round2(s), e: round2(e), t: text });
   }
@@ -945,7 +950,7 @@ function snapshot() {
     v: 1, savedAt: Date.now(), maxChars: S.maxChars,
     chunks: S.chunks.map(c => ({
       i: c.i, ownStart: c.ownStart, ownEnd: c.ownEnd, silent: !!c.silent,
-      status: c.status === 'done' ? 'done' : 'pending', segs: c.status === 'done' ? c.segs : []
+      status: c.status === 'done' ? 'done' : 'pending', segs: c.status === 'done' ? c.segs : [], raw: c.status === 'done' ? (c.raw || []) : []
     })),
     lines: S.lines.map(l => ({ s: l.s, e: l.e, t: l.t, src: l.src }))
   };
@@ -965,7 +970,7 @@ async function restoreSession() {
       saved.chunks.every((c, i) => Math.abs(c.ownStart - S.chunks[i].ownStart) < 0.02 && Math.abs(c.ownEnd - S.chunks[i].ownEnd) < 0.02);
     if (!same) { log('warn', 'saved session ignored (chunk plan differs)'); return false; }
     let done = 0;
-    saved.chunks.forEach((c, i) => { if (c.status === 'done') { S.chunks[i].status = 'done'; S.chunks[i].segs = c.segs || []; S.chunks[i].silent = !!c.silent; done++; } });
+    saved.chunks.forEach((c, i) => { if (c.status === 'done') { S.chunks[i].status = 'done'; S.chunks[i].segs = c.segs || []; S.chunks[i].raw = c.raw || []; S.chunks[i].silent = !!c.silent; done++; } });
     S.lines = (saved.lines || []).map(l => newLine(l.s, l.e, l.t, l.src));
     if (saved.maxChars) { S.maxChars = saved.maxChars; $('maxChars').value = S.maxChars; }
     log('info', 'resume: restored ' + done + '/' + S.chunks.length + ' chunks, ' + S.lines.length + ' lines');
@@ -974,7 +979,7 @@ async function restoreSession() {
   } catch (e) { log('warn', 'resume load failed: ' + msgOf(e)); return false; }
 }
 function resetChunkStates() {
-  S.chunks.forEach(c => { c.status = 'pending'; c.segs = []; c.err = null; });
+  S.chunks.forEach(c => { c.status = 'pending'; c.segs = []; c.raw = []; c.err = null; });
   S.lines = []; S.history = [];
 }
 
@@ -1399,7 +1404,40 @@ function showErr(title, e) {
     explainError(msg).map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div><div style="margin-top:8px"><b>Error:</b></div><pre>' + esc(detail) + '</pre>';
   box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
-function hideErr() { const b = $('errBox'); b.hidden = true; b.innerHTML = ''; }
+function hideErr() { const b = $('errBox'); b.hidden = true; b.innerHTML = ''; b.className = 'banner err'; }
+function showWarn(html) { const b = $('errBox'); b.className = 'banner warn'; b.hidden = false; b.innerHTML = html; }
+
+/* Raw model output, so filtering problems are visible instead of silent. */
+function rawStatsFor(ch) {
+  const st = { empty: 0, nonBn: 0, owner: 0, dup: 0 };
+  const kept = cleanSegments(ch.raw || [], ch, { bnOnly: S.bnOnly, total: S.duration, stats: st });
+  return { st, kept };
+}
+function renderRaw() {
+  const box = $('rawBox');
+  const done = S.chunks.filter(c => c.status === 'done' && !c.silent && (c.raw || []).length);
+  box.hidden = !done.length;
+  if (!done.length) return;
+  $('rawBody').innerHTML = done.map(c => {
+    const r = rawStatsFor(c);
+    const head = 'অংশ ' + (c.i + 1) + ': মডেল ' + c.raw.length + 'টি টুকরো দিয়েছে, রাখা হয়েছে ' + r.kept.length +
+      (r.st.nonBn ? ', বাংলা নয় বলে বাদ ' + r.st.nonBn : '') + (r.st.empty ? ', খালি ' + r.st.empty : '') +
+      (r.st.owner ? ', অন্য অংশের ' + r.st.owner : '') + (r.st.dup ? ', পুনরাবৃত্তি ' + r.st.dup : '');
+    return '<div style="margin-bottom:8px"><b>' + esc(head) + '</b><pre class="logmini">' +
+      esc(c.raw.map(x => '[' + (x.s == null ? '?' : Number(x.s).toFixed(1)) + '–' + (x.e == null ? '?' : Number(x.e).toFixed(1)) + '] ' + String(x.text || '').trim()).join('\n')) + '</pre></div>';
+  }).join('');
+}
+/* Re-run only the text filters on stored raw output (the model is NOT run again). */
+function reapplyFilters() {
+  S.bnOnly = $('bnOnly').checked;
+  const list = S.chunks.filter(c => c.status === 'done' && (c.raw || []).length);
+  if (!list.length) return;
+  if (S.lines.length && !confirm('লাইন আবার তৈরি হবে, হাতে করা এডিট মুছে যাবে। এগিয়ে যাবেন?')) { $('bnOnly').checked = !S.bnOnly; S.bnOnly = $('bnOnly').checked; return; }
+  pushHistory();
+  list.forEach(c => { c.segs = cleanSegments(c.raw, c, { bnOnly: S.bnOnly, total: S.duration }); commitChunk(c); });
+  renderRaw(); hideErr();
+  toast('ফিল্টার বদলে ' + S.lines.length + ' লাইন তৈরি হয়েছে');
+}
 
 /* ==================== UI STATE ==================== */
 function updateUI() {
@@ -1473,7 +1511,7 @@ async function loadVoice(file) {
   await saveNow();
   pauseAudio();
   Object.assign(S, { file, audio: null, energy: null, peaks: null, chunks: [], lines: [], history: [], duration: 0, voice: false, activeIdx: -1 });
-  resetRows(['audio', 'engine', 'model', 'asr']); hideErr(); $('pSum').textContent = '';
+  resetRows(['audio', 'engine', 'model', 'asr']); hideErr(); $('pSum').textContent = ''; $('rawBox').hidden = true;
   $('voiceInfo').innerHTML = '🎙️ <span class="nm">' + esc(file.name) + '</span><span class="muted small"> · ' + mb(file.size) + ' MB</span>';
   renderChips(); renderLines(true); renderTags(); S.waveDirty = true; updateUI();
   setRow('audio', { state: 'run', text: 'শুরু হচ্ছে…', pct: 3 });
@@ -1504,7 +1542,7 @@ async function loadVoice(file) {
     return;
   }
   await restoreSession();
-  renderTags(); renderChips(); renderLines(true); updateAsr(); updateUI();
+  renderTags(); renderChips(); renderLines(true); updateAsr(); renderRaw(); updateUI();
   S.waveDirty = true; seekTo(0); requestRedraw();
 }
 
@@ -1558,7 +1596,7 @@ async function onModelChange() {
   updateModelNote(); refreshCacheBadge();
   if (S.file && S.audio) {
     resetChunkStates(); await restoreSession();
-    renderChips(); renderLines(true); renderTags(); updateAsr(); S.waveDirty = true; requestRedraw();
+    renderChips(); renderLines(true); renderTags(); updateAsr(); renderRaw(); S.waveDirty = true; requestRedraw();
   }
   updateUI();
 }
@@ -1708,11 +1746,18 @@ async function processChunk(ch) {
       const buf = S.audio.slice(a0, a1);                   // one chunk copy, transferred to the worker
       log('info', 'chunk ' + (ch.i + 1) + '/' + N + ' start (' + (buf.length / SR).toFixed(1) + 's audio)');
       const res = await Engine.transcribe(buf, 480000);
-      ch.segs = cleanSegments(res.chunks, ch, { bnOnly: S.bnOnly, total: S.duration });
+      ch.raw = (res.chunks || []).map(x => ({ text: x.text, s: x.s, e: x.e }));
+      const st = { empty: 0, nonBn: 0, owner: 0, dup: 0 };
+      ch.segs = cleanSegments(ch.raw, ch, { bnOnly: S.bnOnly, total: S.duration, stats: st });
+      ch.raw.forEach((x, k) => log('info', 'raw[' + k + '] [' + (x.s == null ? '?' : Number(x.s).toFixed(1)) + '-' + (x.e == null ? '?' : Number(x.e).toFixed(1)) + '] ' + String(x.text || '').trim().slice(0, 160)));
+      log('info', 'filter dropped: nonBengali=' + st.nonBn + ' empty=' + st.empty + ' otherChunk=' + st.owner + ' duplicate=' + st.dup);
       ch.status = 'done'; ch.err = null;
       S.stats.sec += ch.ownEnd - ch.ownStart; S.stats.ms += performance.now() - t1;
       log('info', 'chunk ' + (ch.i + 1) + '/' + N + ' done in ' + ((performance.now() - t1) / 1000).toFixed(1) + 's: ' + (res.chunks || []).length + ' raw, ' + ch.segs.length + ' kept');
-      commitChunk(ch); renderChips(); updateAsr(); saveNow();
+      commitChunk(ch); renderChips(); updateAsr(); renderRaw(); saveNow();
+      if (ch.raw.length && !ch.segs.length) {
+        showWarn('<b>⚠️ মডেল ' + ch.raw.length + 'টি টুকরো দিয়েছে, কিন্তু কোনোটাই বাংলা লেখা হিসেবে রাখা হয়নি।</b><div style="margin-top:6px">নিচে "মডেলের কাঁচা আউটপুট" খুলে দেখুন মডেল কী লিখেছে। সব দেখতে "শুধু বাংলা অক্ষরসহ লাইন রাখুন" টিক তুলে দিন, মডেল আবার চলবে না।</div>');
+      }
       return;
     } catch (e) {
       if (e && e.stopped) { ch.status = 'pending'; throw e; }
@@ -1743,7 +1788,7 @@ async function onReset() {
   if (S.running || !S.audio) return;
   if (!confirm('সংরক্ষিত কাজ ও সব লাইন মুছে নতুন করে শুরু হবে। এগিয়ে যাবেন?')) return;
   try { await Store.del(sessionKey()); } catch (e) { /* ignore */ }
-  resetChunkStates(); renderChips(); renderLines(true); updateAsr(); S.waveDirty = true; updateUI();
+  resetChunkStates(); renderChips(); renderLines(true); updateAsr(); renderRaw(); S.waveDirty = true; updateUI();
   runTranscription();
 }
 
@@ -1879,6 +1924,7 @@ function init() {
   $('btnStart').onclick = () => runTranscription();
   $('btnStop').onclick = () => stopRun().then(() => toast('থামানো হয়েছে'));
   $('btnReset').onclick = onReset;
+  $('bnOnly').onchange = reapplyFilters;
   $('maxChars').onchange = () => { S.maxChars = Math.max(8, Math.min(80, Number($('maxChars').value) || 28)); $('maxChars').value = S.maxChars; toast('নতুন সীমা পরের অংশগুলোতে কাজ করবে। আগেরগুলোতে "আবার ভাগ করুন" চাপুন'); };
   $('chips').addEventListener('click', e => {
     const b = e.target.closest('.chip'); if (!b) return;
