@@ -91,15 +91,28 @@ h2{font-size:18px;margin:0 0 10px;font-weight:700}
 input[type=range]{width:100%;min-height:36px;accent-color:var(--accent);margin:0}
 .volrow{display:flex;align-items:center;gap:10px}
 .volrow span{flex:none}
-#wave{display:block;width:100%;height:96px;border-radius:12px;background:var(--field);border:1px solid var(--line);touch-action:pan-y;cursor:pointer}
+#wave{display:block;width:100%;height:120px;border-radius:12px;background:var(--field);border:1px solid var(--line);touch-action:none;cursor:pointer}
+.wavetools{gap:6px}.wavetools .btn.icon{min-width:44px}
 
 /* details/style */
 details.card>summary{font-weight:700;font-size:18px;cursor:pointer;min-height:36px;list-style-position:inside}
-.sgrid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:12px}
-.sctl{display:grid;grid-template-columns:130px 1fr 44px;gap:8px;align-items:center}
-.sctl label{font-size:15px}
-.sctl output{font-size:13.5px;text-align:right;color:var(--muted)}
-.sctl.two{grid-template-columns:130px 1fr}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin-top:8px}
+.sgroup{grid-column:1/-1;font-weight:700;font-size:14px;color:var(--accent);margin-top:8px;padding-bottom:2px;border-bottom:1px solid var(--line)}
+.sctl{display:flex;flex-direction:column;gap:1px;min-width:0}
+.sctl.wide{grid-column:1/-1}
+.sctl>label{font-size:13.5px;display:flex;justify-content:space-between;gap:6px;color:var(--muted)}
+.sctl output{font-size:13px;color:var(--ink)}
+.sctl.chk{flex-direction:row;align-items:center;gap:8px;min-height:40px}
+.sctl.chk>label{color:var(--ink);font-size:15px}
+.sgrid select{min-height:40px;padding:4px 8px;font-size:15px}
+.sgrid input[type=color]{width:100%;height:36px}
+.sgrid input[type=range]{min-height:30px}
+.minipre{position:sticky;top:0;z-index:6;display:flex;align-items:center;justify-content:center;gap:12px;background:var(--card);padding:8px 0;margin-top:6px;border-bottom:1px solid var(--line)}
+#preview2{width:72px;height:128px;border-radius:8px;background:#000;border:1px solid var(--line);flex:none}
+.timelist{font:13.5px/1.6 ui-monospace,Menlo,Consolas,monospace;margin-top:6px;min-height:120px}
+.line.locked{border-color:var(--ok)}
+.line.pending{border-style:dashed;border-color:var(--accent)}
+.tm:disabled{opacity:.55}
 select,input[type=text],input[type=number],textarea{font:inherit;font-size:16px;color:var(--ink);background:var(--field);border:1.5px solid var(--line);border-radius:12px;padding:8px 10px;width:100%;min-height:46px}
 input[type=color]{width:64px;height:44px;padding:2px;border-radius:10px;border:1.5px solid var(--line);background:var(--field)}
 input[type=checkbox]{width:26px;height:26px;accent-color:var(--accent)}
@@ -149,7 +162,7 @@ input[type=checkbox]{width:26px;height:26px;accent-color:var(--accent)}
 
 #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:15px;max-width:90vw;z-index:50;opacity:0;pointer-events:none;transition:opacity .2s;text-align:center}
 #toast.show{opacity:1}
-@media (max-width:380px){.sctl{grid-template-columns:100px 1fr 40px}.tm{width:96px!important}}
+@media (max-width:380px){.tm{width:96px!important}}
 @media (prefers-reduced-motion:reduce){.bar.ind>i,.chip.running{animation:none}}
 
 </style>
@@ -159,14 +172,14 @@ input[type=checkbox]{width:26px;height:26px;accent-color:var(--accent)}
   <header class="top">
     <div>
       <h1>Shorts Video Tool — Auto Bengali Transcription</h1>
-      <p class="sub">ভয়েস আপলোড করলেই বাংলা সাবটাইটেল তৈরি। সবকিছু আপনার ফোনের ব্রাউজারেই চলে, অডিও কোথাও আপলোড হয় না। <span class="mono">সংস্করণ v7</span></p>
+      <p class="sub">ভয়েস আপলোড করলেই বাংলা সাবটাইটেল তৈরি। সবকিছু আপনার ফোনের ব্রাউজারেই চলে, অডিও কোথাও আপলোড হয় না। <span class="mono">সংস্করণ v8</span></p>
     </div>
     <button id="themeBtn" class="btn sm icon" aria-label="থিম বদলান" title="থিম">🌓</button>
   </header>
 
   <div id="envBanner"></div>
 
-  <!-- 1. FILES: voice + image side by side at the top -->
+  <!-- FILES: voice + image side by side -->
   <section class="card" id="cardFiles">
     <div class="grid2">
       <label class="btn primary" for="voiceInput">🎙️ ভয়েস আপলোড</label>
@@ -184,11 +197,19 @@ input[type=checkbox]{width:26px;height:26px;accent-color:var(--accent)}
     <p class="small muted" style="margin:8px 0 0">ছবি ভিডিওর ব্যাকগ্রাউন্ড হবে (cover ফিট)। HEIC ছবি কিছু ফোনে লোড নাও হতে পারে, তখন JPG/PNG দিন।</p>
   </section>
 
-  <!-- 2. PREVIEW + PLAYER -->
+  <!-- PREVIEW + PLAYER + WAVEFORM MARKERS -->
   <section class="card" id="cardPreview">
     <div class="stage"><canvas id="preview" width="720" height="1280" aria-label="9:16 ভিডিও প্রিভিউ"></canvas></div>
     <div class="player">
       <canvas id="wave" aria-label="ওয়েভফর্ম"></canvas>
+      <div class="row wavetools">
+        <button id="btnZoomOut" class="btn sm icon" aria-label="জুম কমান">🔍−</button>
+        <span id="zoomTxt" class="mono small">×1</span>
+        <button id="btnZoomIn" class="btn sm icon" aria-label="জুম বাড়ান">🔍＋</button>
+        <button id="btnMarkS" class="btn sm grow">📍 এখানে শুরু</button>
+        <button id="btnMarkE" class="btn sm primary grow">📍 এখানে শেষ + 🔒</button>
+      </div>
+      <p class="small muted" style="margin:0">ওয়েভফর্মে সবুজ/লাল হ্যান্ডেল টেনে লাইনের শুরু/শেষ সরান। লক করা লাইনের হ্যান্ডেল নড়বে না।</p>
       <input id="seek" type="range" min="0" max="1000" value="0" step="1" aria-label="টাইমলাইন">
       <div class="pl-row">
         <button id="btnPrev" class="btn icon" aria-label="আগের লাইন">⏮</button>
@@ -200,15 +221,52 @@ input[type=checkbox]{width:26px;height:26px;accent-color:var(--accent)}
     </div>
   </section>
 
-  <!-- 3. SUBTITLE STYLE -->
+  <!-- 1. SUBTITLE STYLE (compact) -->
   <details class="card" id="cardStyle">
     <summary>🎨 সাবটাইটেল স্টাইল</summary>
+    <div class="minipre"><canvas id="preview2" width="180" height="320" aria-label="লাইভ প্রিভিউ"></canvas><span class="small muted">লাইভ প্রিভিউ<br>স্ক্রল করলেও উপরে থাকে</span></div>
     <div class="sgrid" id="styleGrid"></div>
-    <div class="row" style="margin-top:12px"><button id="btnStyleReset" class="btn sm">↺ ডিফল্ট স্টাইল</button></div>
-    <p class="small muted" style="margin:8px 0 0">এই অংশ খোলা থাকলে পজ অবস্থায় কাছের লাইনটি প্রিভিউতে দেখানো হয়, যাতে স্টাইল বুঝতে পারেন।</p>
+    <div class="row" style="margin-top:10px"><button id="btnStyleReset" class="btn sm">↺ ডিফল্ট স্টাইল</button></div>
   </details>
 
-  <!-- 4. TRANSCRIBE -->
+  <!-- 2. LINE EDITOR -->
+  <section class="card" id="cardEditor">
+    <h2>📝 লাইন এডিটর <span id="lineCount" class="muted small"></span></h2>
+    <div class="row" style="margin-bottom:10px">
+      <button id="btnAdd" class="btn sm grow">＋ প্লেহেডে নতুন লাইন</button>
+      <button id="btnUndo" class="btn sm grow" disabled>↩ আনডু</button>
+      <button id="btnResplit" class="btn sm grow">✂ আবার ভাগ করুন</button>
+      <button id="btnSrt" class="btn sm primary grow">⬇ SRT ডাউনলোড</button>
+    </div>
+    <div id="lines"></div>
+    <p class="small muted" style="margin:8px 0 0">লেখা বদলালে সময় বদলায় না। 🔒 লক করলে সময় ও লাইন সুরক্ষিত থাকে। সবকিছু নিজে থেকেই সেভ হয়।</p>
+    <details open style="margin-top:12px">
+      <summary style="font-weight:600;cursor:pointer;min-height:36px">🕒 সময়সহ তালিকা (কপি করা যাবে)</summary>
+      <textarea id="timeList" class="timelist" readonly rows="6" placeholder="00:00-00:15 (লেখা…)"></textarea>
+      <button id="btnCopyList" class="btn sm" style="margin-top:8px;width:100%">📋 তালিকা কপি</button>
+    </details>
+  </section>
+
+  <!-- 3-8. SETTINGS + PROGRESS + RESULT -->
+  <section class="card" id="cardProgress">
+    <div class="field">
+      <label for="maxChars">প্রতি লাইনে সর্বোচ্চ অক্ষর</label>
+      <input id="maxChars" type="number" inputmode="numeric" min="8" max="80" value="28">
+    </div>
+    <div id="pRows"></div>
+    <div id="pSum" class="mono muted"></div>
+    <pre id="pLog" class="logmini"></pre>
+    <div id="chips" class="chips"></div>
+    <div class="legend" id="chipLegend" hidden>ধূসর = অপেক্ষায় · নীল = চলছে · সবুজ = শেষ · লাল = ব্যর্থ (চাপলে আবার চেষ্টা হবে)। অন্য অংশ চাপলে সেখানে প্লেব্যাক যাবে।</div>
+    <div id="errBox" class="banner err" hidden></div>
+    <details id="rawBox" style="margin-top:12px" hidden>
+      <summary style="font-weight:600;cursor:pointer;min-height:36px">🔎 মডেলের কাঁচা আউটপুট (সমস্যা হলে এখানে দেখুন)</summary>
+      <div id="rawBody" style="margin-top:8px"></div>
+      <button id="btnApplyRaw" class="btn sm" style="width:100%">⤵ এই লেখা লাইন এডিটরে বসান</button>
+    </details>
+  </section>
+
+  <!-- 9. AUTO BENGALI TRANSCRIPTION -->
   <section class="card" id="cardAsr">
     <h2>✍️ স্বয়ংক্রিয় বাংলা লেখা</h2>
     <div class="field">
@@ -223,44 +281,17 @@ input[type=checkbox]{width:26px;height:26px;accent-color:var(--accent)}
       <select id="engineSel"></select>
       <div id="engineNote" class="small muted"></div>
     </div>
+    <label class="row small" style="margin:0 0 8px"><input type="checkbox" id="autoFill" checked> <span>লেখা তৈরি হলে লাইন নিজে থেকে এডিটরে বসুক (বন্ধ করলে আপনি নিজে মার্কার বসিয়ে লাইন বানাবেন)</span></label>
+    <label class="row small" style="margin:0 0 10px"><input type="checkbox" id="bnOnly"> <span>শুধু বাংলা অক্ষরসহ লাইন রাখুন (চালু করলে ইংরেজি অক্ষরে লেখা লাইন বাদ যাবে)</span></label>
     <div class="banner warn small" style="margin-bottom:10px">💡 লেখা তৈরির সময় মেমরি বেশি লাগে। শুরুর আগে Chrome-এর অন্য সব ট্যাব ও অ্যাপ বন্ধ করুন।</div>
-    <div class="field">
-      <label for="maxChars">প্রতি লাইনে সর্বোচ্চ অক্ষর</label>
-      <input id="maxChars" type="number" inputmode="numeric" min="8" max="80" value="28">
-    </div>
-    <label class="row small" style="margin:0 0 10px"><input type="checkbox" id="bnOnly" checked> <span>শুধু বাংলা অক্ষরসহ লাইন রাখুন (ভুয়া ইংরেজি লাইন বাদ)</span></label>
     <div class="grid2">
       <button id="btnStart" class="btn primary" disabled>▶ লেখা তৈরি শুরু</button>
       <button id="btnReset" class="btn" disabled>🔄 নতুন করে শুরু</button>
     </div>
     <button id="btnStop" class="btn danger" style="width:100%;margin-top:10px" disabled>⏹ থামান</button>
-
-    <div id="pRows" style="margin-top:12px"></div>
-    <div id="pSum" class="mono muted"></div>
-    <pre id="pLog" class="logmini"></pre>
-    <div id="chips" class="chips"></div>
-    <div class="legend" id="chipLegend" hidden>ধূসর = অপেক্ষায় · নীল = চলছে · সবুজ = শেষ · লাল = ব্যর্থ (চাপলে আবার চেষ্টা হবে)। অন্য অংশ চাপলে সেখানে প্লেব্যাক যাবে।</div>
-    <div id="errBox" class="banner err" hidden></div>
-    <details id="rawBox" style="margin-top:12px" hidden>
-      <summary style="font-weight:600;cursor:pointer;min-height:36px">🔎 মডেলের কাঁচা আউটপুট (সমস্যা হলে এখানে দেখুন)</summary>
-      <div id="rawBody" style="margin-top:8px"></div>
-    </details>
   </section>
 
-  <!-- 5. EDITOR -->
-  <section class="card" id="cardEditor">
-    <h2>📝 লাইন এডিটর <span id="lineCount" class="muted small"></span></h2>
-    <div class="row" style="margin-bottom:10px">
-      <button id="btnAdd" class="btn sm grow">＋ এখানে নতুন লাইন</button>
-      <button id="btnUndo" class="btn sm grow" disabled>↩ আনডু</button>
-      <button id="btnResplit" class="btn sm grow">✂ আবার ভাগ করুন</button>
-      <button id="btnSrt" class="btn sm primary grow">⬇ SRT ডাউনলোড</button>
-    </div>
-    <div id="lines"></div>
-    <p class="small muted" style="margin:8px 0 0">লেখা বদলালে সময় বদলায় না। বদলানো সবকিছু নিজে থেকেই সেভ হয়।</p>
-  </section>
-
-  <!-- 6. EXPORT -->
+  <!-- 10. EXPORT -->
   <section class="card" id="cardExport">
     <h2>🎬 ভিডিও এক্সপোর্ট</h2>
     <div class="field">
@@ -280,7 +311,7 @@ input[type=checkbox]{width:26px;height:26px;accent-color:var(--accent)}
     <div id="expOut" class="exp-out"></div>
   </section>
 
-  <!-- 7. DEBUG -->
+  <!-- 11. DEBUG -->
   <section class="card" id="cardDebug">
     <h2>🪲 Debug log <span class="small muted">(আটকে গেলে কপি করে পাঠান)</span></h2>
     <pre id="dbg"></pre>
@@ -471,6 +502,17 @@ function fmtSrt(t) {
 
 function buildSrt(lines) {
   return lines.map((l, i) => (i + 1) + '\n' + fmtSrt(l.s) + ' --> ' + fmtSrt(l.e) + '\n' + String(l.t).replace(/\r/g, '') + '\n').join('\n');
+}
+
+/** seconds -> "mm:ss" (whole seconds) */
+function fmtMS(t) {
+  if (!isFinite(t) || t < 0) t = 0;
+  const s = Math.round(t);
+  return pad2(Math.floor(s / 60)) + ':' + pad2(s % 60);
+}
+/** "00:00-00:15 (text)" per line */
+function buildTimeList(lines) {
+  return lines.map(l => fmtMS(l.s) + '-' + fmtMS(l.e) + ' (' + String(l.t).replace(/\s+/g, ' ').trim() + ')').join('\n');
 }
 
 /* grapheme-aware length (Bengali conjuncts / matras) */
@@ -676,14 +718,14 @@ const STYLE_DEFAULTS = {
 const S = {
   file: null, audio: null, energy: null, peaks: null, thr: 0.006, duration: 0, voice: false,
   chunks: [], lines: [], idSeq: 0, history: [],
-  engineSel: 'auto', ladderIdx: 0, modelKey: 'base', maxChars: 28, bnOnly: true,
+  engineSel: 'auto', ladderIdx: 0, modelKey: 'base', maxChars: 28, bnOnly: false,
   running: false, stop: false, t0: 0, stats: { sec: 0, ms: 0 }, elapsedTimer: 0,
   audioEl: null, audioUrl: null, playing: false,
   ctx: null, gain: null, streamDest: null, srcNode: null,
   img: null, imgUrl: null, imgName: '',
   style: null, activeIdx: -1, exporting: false, exportCancel: false,
   bg: null, bgKey: '', waveCache: null, waveDirty: true, raf: 0, pendingRender: false, dragWave: false,
-  saveTimer: 0, wakeLock: null
+  saveTimer: 0, wakeLock: null, zoom: 1, viewStart: 0, openId: null, drag: null, autoFill: true
 };
 
 /* ---------- on-screen + console log ---------- */
@@ -702,6 +744,14 @@ function log(level, msg) {
 }
 function msgOf(e) { return (e && e.message) ? String(e.message) : String(e); }
 
+async function copyText(text, okMsg) {
+  try { await navigator.clipboard.writeText(text); toast(okMsg); return; } catch (e) { /* fallback below */ }
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); toast(okMsg); } catch (e) { toast('কপি করা যায়নি, লেখা চেপে ধরে সিলেক্ট করুন'); }
+  ta.remove();
+}
 async function copyLog() {
   const text = envSummary() + '\n' + LOGS.join('\n');
   try { await navigator.clipboard.writeText(text); toast('লগ কপি হয়েছে'); return; } catch (e) { /* fallback below */ }
@@ -956,7 +1006,7 @@ function snapshot() {
       i: c.i, ownStart: c.ownStart, ownEnd: c.ownEnd, silent: !!c.silent,
       status: c.status === 'done' ? 'done' : 'pending', segs: c.status === 'done' ? c.segs : [], raw: c.status === 'done' ? (c.raw || []) : []
     })),
-    lines: S.lines.map(l => ({ s: l.s, e: l.e, t: l.t, src: l.src }))
+    lines: S.lines.map(l => ({ s: l.s, e: l.e, t: l.t, src: l.src, locked: !!l.locked }))
   };
 }
 function scheduleSave() { clearTimeout(S.saveTimer); S.saveTimer = setTimeout(saveNow, 700); }
@@ -975,7 +1025,7 @@ async function restoreSession() {
     if (!same) { log('warn', 'saved session ignored (chunk plan differs)'); return false; }
     let done = 0;
     saved.chunks.forEach((c, i) => { if (c.status === 'done') { S.chunks[i].status = 'done'; S.chunks[i].segs = c.segs || []; S.chunks[i].raw = c.raw || []; S.chunks[i].silent = !!c.silent; done++; } });
-    S.lines = (saved.lines || []).map(l => newLine(l.s, l.e, l.t, l.src));
+    S.lines = (saved.lines || []).map(l => { const n = newLine(l.s, l.e, l.t, l.src); n.locked = !!l.locked; return n; });
     if (saved.maxChars) { S.maxChars = saved.maxChars; $('maxChars').value = S.maxChars; }
     log('info', 'resume: restored ' + done + '/' + S.chunks.length + ' chunks, ' + S.lines.length + ' lines');
     if (done || S.lines.length) toast('আগের কাজ ফিরে এসেছে: ' + done + '/' + S.chunks.length + ' অংশ, ' + S.lines.length + ' লাইন');
@@ -988,17 +1038,21 @@ function resetChunkStates() {
 }
 
 /* ==================== LINES ==================== */
-function newLine(s, e, t, src) { return { id: ++S.idSeq, s, e, t, src: src == null ? null : src }; }
+function newLine(s, e, t, src) { return { id: ++S.idSeq, s, e, t, src: src == null ? null : src, locked: false, pending: false }; }
 function sortLines() { S.lines.sort((a, b) => a.s - b.s || a.e - b.e); }
-function commitChunk(ch) {
+function commitChunk(ch, force) {
+  if (!S.autoFill && !force) { updateUI(); return; }      // user builds lines manually with markers
   const fresh = linesFromSegs(ch.segs, S.maxChars).map(l => newLine(l.s, l.e, l.t, ch.i));
   S.lines = S.lines.filter(l => l.src !== ch.i).concat(fresh);
   sortLines();
   afterLinesChanged(true);
 }
+function updateTimeList() {
+  const el = $('timeList'); if (el) el.value = buildTimeList(S.lines);
+}
 function afterLinesChanged(deferRender) {
   S.waveDirty = true;
-  renderLines(!deferRender);
+  renderLines(!deferRender); updateTimeList();
   scheduleSave(); updateUI(); requestRedraw();
 }
 function pushHistory() { S.history.push(JSON.stringify(S.lines)); if (S.history.length > 30) S.history.shift(); updateUI(); }
@@ -1013,6 +1067,7 @@ function renderLines(force) {
   if (!force && ae && box.contains(ae) && /^(TEXTAREA|INPUT)$/.test(ae.tagName)) { S.pendingRender = true; return; }
   S.pendingRender = false;
   const top = box.scrollTop;
+  updateTimeList();
   $('lineCount').textContent = S.lines.length ? '(' + S.lines.length + ' লাইন)' : '';
   if (!S.lines.length) {
     box.innerHTML = '<p class="muted empty">এখনো কোনো লাইন নেই। ভয়েস আপলোড করে "লেখা তৈরি শুরু" চাপুন, লাইনগুলো এখানে নিজে থেকেই আসবে।</p>';
@@ -1021,13 +1076,15 @@ function renderLines(force) {
   const frag = document.createDocumentFragment();
   S.lines.forEach((l, i) => {
     const d = document.createElement('div');
-    d.className = 'line'; d.dataset.id = l.id;
+    d.className = 'line' + (l.locked ? ' locked' : '') + (l.pending ? ' pending' : ''); d.dataset.id = l.id;
+    const dis = l.locked ? ' disabled' : '';
     d.innerHTML =
       '<div class="lh"><span class="num">' + (i + 1) + '</span>' +
-      '<input type="text" class="tm mono" data-k="s" inputmode="decimal" aria-label="শুরু" value="' + fmtTime(l.s) + '">' +
+      '<input type="text" class="tm mono" data-k="s" inputmode="decimal" aria-label="শুরু" value="' + fmtTime(l.s) + '"' + dis + '>' +
       '<span class="muted">→</span>' +
-      '<input type="text" class="tm mono" data-k="e" inputmode="decimal" aria-label="শেষ" value="' + fmtTime(l.e) + '"></div>' +
-      '<div class="lrow"><button class="btn sm" data-act="setS">⏱ শুরু = এখন</button><button class="btn sm" data-act="setE">⏱ শেষ = এখন</button></div>' +
+      '<input type="text" class="tm mono" data-k="e" inputmode="decimal" aria-label="শেষ" value="' + fmtTime(l.e) + '"' + dis + '></div>' +
+      '<div class="lrow"><button class="btn sm ' + (l.locked ? 'primary' : '') + '" data-act="lock">' + (l.locked ? '🔓 আনলক' : '🔒 লক') + '</button>' +
+      '<button class="btn sm" data-act="setS">⏱ শুরু = এখন</button><button class="btn sm" data-act="setE">⏱ শেষ = এখন</button></div>' +
       '<textarea class="lt" rows="2" aria-label="লেখা"></textarea>' +
       '<div class="lrow"><button class="btn sm" data-act="play">▶ এখান থেকে</button><button class="btn sm" data-act="split">✂ কার্সারে ভাগ</button>' +
       '<button class="btn sm" data-act="merge">⤵ পরেরটার সাথে জোড়া</button><button class="btn sm danger" data-act="del">🗑 মুছুন</button></div>';
@@ -1046,7 +1103,17 @@ function onLinesClick(e) {
   const idx = S.lines.findIndex(l => l.id === id); if (idx < 0) return;
   const l = S.lines[idx];
   const now = S.audioEl.currentTime || 0;
-  switch (btn.dataset.act) {
+  const act = btn.dataset.act;
+  if (act === 'lock') {
+    pushHistory(); l.locked = !l.locked; if (l.locked) l.pending = false;
+    if (l.locked && S.openId === l.id) S.openId = null;
+    afterLinesChanged(false); toast(l.locked ? '🔒 লাইন লক হয়েছে' : '🔓 লাইন আনলক হয়েছে'); return;
+  }
+  const nextLocked = act === 'merge' && S.lines[idx + 1] && S.lines[idx + 1].locked;
+  if ((l.locked && (act === 'setS' || act === 'setE' || act === 'split' || act === 'merge' || act === 'del')) || nextLocked) {
+    toast('লাইন লক করা আছে। আগে 🔓 আনলক করুন'); return;
+  }
+  switch (act) {
     case 'setS':
       if (now >= l.e) { toast('শুরু, শেষের আগে হতে হবে'); return; }
       pushHistory(); l.s = round2(now); S.lines = S.lines.slice(); sortLines(); afterLinesChanged(false); break;
@@ -1081,7 +1148,7 @@ function onLinesInput(e) {
   if (!e.target.classList.contains('lt')) return;
   const l = lineById(+e.target.closest('.line').dataset.id); if (!l) return;
   l.t = e.target.value;               // text edits never touch timing
-  scheduleSave(); requestRedraw();
+  updateTimeList(); scheduleSave(); requestRedraw();
 }
 function onLinesChange(e) {
   if (!e.target.classList.contains('tm')) return;
@@ -1102,6 +1169,36 @@ function addLineAtPlayhead() {
   S.lines.push(nl); sortLines(); afterLinesChanged(false);
   const row = $('lines').querySelector('.line[data-id="' + nl.id + '"]');
   if (row) { $('lines').scrollTo({ top: row.offsetTop - 8 }); row.querySelector('textarea').focus(); }
+}
+
+/* Manual workflow: listen, press "start" at the beginning of a sentence and "end + lock" at its end. */
+function scrollToLine(id) {
+  const row = $('lines').querySelector('.line[data-id="' + id + '"]');
+  if (row) $('lines').scrollTo({ top: Math.max(0, row.offsetTop - 8), behavior: 'smooth' });
+  return row;
+}
+function markStart() {
+  if (!S.audio) { toast('আগে ভয়েস আপলোড করুন'); return; }
+  if (lineById(S.openId)) { toast('আগের লাইনের "📍 এখানে শেষ + 🔒" চাপুন, অথবা সেই লাইন মুছুন'); return; }
+  const t = round2(S.audioEl.currentTime || 0);
+  pushHistory();
+  const l = newLine(t, round2(Math.min(t + 0.3, S.duration || t + 0.3)), '', null);
+  l.pending = true; S.openId = l.id;
+  S.lines.push(l); sortLines(); afterLinesChanged(false);
+  scrollToLine(l.id);
+  toast('শুরু বসেছে। শেষের জায়গায় গিয়ে "📍 এখানে শেষ + 🔒" চাপুন');
+}
+function markEnd() {
+  const l = lineById(S.openId);
+  if (!l) { toast('আগে "📍 এখানে শুরু" চাপুন'); return; }
+  const t = round2(S.audioEl.currentTime || 0);
+  if (t <= l.s + 0.05) { toast('শেষ সময় শুরুর পরে হতে হবে'); return; }
+  pushHistory();
+  l.e = t; l.pending = false; l.locked = true; S.openId = null;
+  afterLinesChanged(false);
+  const row = scrollToLine(l.id);
+  toast('🔒 লাইন লক হয়েছে। এবার লেখা লিখুন');
+  if (row) { const ta = row.querySelector('textarea'); if (ta && !ta.value) ta.focus({ preventScroll: true }); }
 }
 
 function resplitAll() {
@@ -1129,9 +1226,10 @@ function downloadSrt() {
 
 /* ==================== PLAYER ==================== */
 function dur() { return S.duration || 0; }
-function seekTo(t) {
+function seekTo(t, keepView) {
   t = Math.max(0, Math.min(t, dur() || t));
   try { S.audioEl.currentTime = t; } catch (e) { /* not ready */ }
+  if (!keepView) ensureVisible(t, false);
   requestRedraw();
 }
 function ensureAudioGraph() {
@@ -1165,6 +1263,7 @@ function loop() { S.raf = 0; frame(); if (S.playing || S.exporting) S.raf = requ
 function requestRedraw() { if (!S.raf) S.raf = requestAnimationFrame(loop); }
 function frame() {
   const t = S.audioEl ? (S.audioEl.currentTime || 0) : 0;
+  if (S.zoom > 1 && (S.playing || S.exporting)) ensureVisible(t, false);
   drawPreview(t); drawWave(t); updateTimeUI(t); updateActive(t);
 }
 function updateTimeUI(t) {
@@ -1190,31 +1289,71 @@ function updateActive(t) {
   if (S.playing || S.exporting) box.scrollTo({ top: Math.max(0, row.offsetTop - (box.clientHeight - row.offsetHeight) / 2), behavior: 'smooth' });
 }
 
-/* ==================== WAVEFORM ==================== */
+/* ==================== WAVEFORM (zoom + draggable start/end handles) ==================== */
 function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function viewWin() { return Math.max(0.5, dur() / S.zoom); }
+function clampView() { S.viewStart = Math.max(0, Math.min(S.viewStart, Math.max(0, dur() - viewWin()))); }
+function t2x(t, w) { return (t - S.viewStart) / viewWin() * w; }
+function x2t(x, w) { return S.viewStart + x / w * viewWin(); }
+function ensureVisible(t, center) {
+  if (S.zoom <= 1 || !dur()) return;
+  const win = viewWin();
+  if (center || t < S.viewStart + win * 0.04 || t > S.viewStart + win * 0.96) {
+    S.viewStart = t - (center ? win / 2 : win * 0.15); clampView(); S.waveDirty = true;
+  }
+}
+function setZoom(z) {
+  z = Math.max(1, Math.min(16, z));
+  S.zoom = z; ensureVisible(S.audioEl ? (S.audioEl.currentTime || 0) : 0, true); clampView();
+  S.waveDirty = true; $('zoomTxt').textContent = '×' + z; requestRedraw();
+}
+/* vertical position of the round grips: end grip high, start grip low, so touching boundaries do not overlap */
+const GRIP_Y = { s: 0.68, e: 0.32 };
 function drawWave(t) {
   const cv = $('wave');
   const dpr = Math.min(window.devicePixelRatio || 1, 3);
   const w = Math.max(1, Math.round(cv.clientWidth * dpr)), h = Math.max(1, Math.round(cv.clientHeight * dpr));
   if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; S.waveDirty = true; }
   const g = cv.getContext('2d');
+  const D = dur(), win = viewWin();
   if (S.waveDirty || !S.waveCache) {
     const off = S.waveCache || (S.waveCache = document.createElement('canvas'));
     off.width = w; off.height = h;
     const c = off.getContext('2d');
     c.fillStyle = cssVar('--field') || '#eee'; c.fillRect(0, 0, w, h);
-    const D = dur();
     if (D && S.peaks) {
-      c.fillStyle = cssVar('--accent'); c.globalAlpha = 0.16;
-      for (const l of S.lines) { c.fillRect(l.s / D * w, 0, Math.max(1, (l.e - l.s) / D * w), h); }
-      c.globalAlpha = 0.75;
-      for (const l of S.lines) { c.fillRect(l.s / D * w, 0, Math.max(1, dpr), h); c.fillRect(l.e / D * w - dpr, 0, Math.max(1, dpr), h); }
+      clampView();
+      // line regions
+      for (const l of S.lines) {
+        const xs = t2x(l.s, w), xe = t2x(l.e, w);
+        if (xe < 0 || xs > w) continue;
+        c.globalAlpha = l.locked ? 0.2 : 0.13;
+        c.fillStyle = l.locked ? cssVar('--ok') : cssVar('--accent');
+        c.fillRect(xs, 0, Math.max(1, xe - xs), h);
+      }
       c.globalAlpha = 1;
+      // peaks
       c.fillStyle = cssVar('--muted');
       const n = S.peaks.length, mid = h / 2;
       for (let x = 0; x < w; x++) {
-        const a = S.peaks[Math.min(n - 1, Math.floor(x / w * n))] * (h * 0.46);
+        const ta = S.viewStart + x / w * win, tb = S.viewStart + (x + 1) / w * win;
+        const i0 = Math.max(0, Math.floor(ta / D * n)), i1 = Math.min(n, Math.max(i0 + 1, Math.ceil(tb / D * n)));
+        let m = 0;
+        for (let i = i0; i < i1; i++) if (S.peaks[i] > m) m = S.peaks[i];
+        const a = m * h * 0.46;
         c.fillRect(x, mid - a, 1, Math.max(1, a * 2));
+      }
+      // handles
+      const col = { s: cssVar('--ok'), e: cssVar('--err'), lock: cssVar('--accent') };
+      for (const l of S.lines) {
+        for (const k of ['s', 'e']) {
+          const x = t2x(l[k], w);
+          if (x < -20 || x > w + 20) continue;
+          c.fillStyle = l.locked ? col.lock : col[k];
+          c.fillRect(x - dpr, 0, 2 * dpr, h);
+          if (!l.locked) { c.beginPath(); c.arc(x, h * GRIP_Y[k], 10 * dpr, 0, Math.PI * 2); c.fill(); }
+          else { c.globalAlpha = 0.9; c.beginPath(); c.arc(x, h * GRIP_Y[k], 3.5 * dpr, 0, Math.PI * 2); c.fill(); c.globalAlpha = 1; }
+        }
       }
     } else {
       c.fillStyle = cssVar('--muted'); c.font = Math.round(14 * dpr) + 'px "Hind Siliguri", sans-serif'; c.textAlign = 'center';
@@ -1223,47 +1362,89 @@ function drawWave(t) {
     S.waveDirty = false;
   }
   g.drawImage(S.waveCache, 0, 0);
-  const D = dur();
   if (D) {
     const ai = S.activeIdx >= 0 ? S.lines[S.activeIdx] : null;
-    if (ai) { g.fillStyle = cssVar('--haldi'); g.globalAlpha = 0.28; g.fillRect(ai.s / D * w, 0, Math.max(1, (ai.e - ai.s) / D * w), h); g.globalAlpha = 1; }
-    g.fillStyle = cssVar('--haldi'); g.fillRect(Math.max(0, Math.min(w - 3 * dpr, t / D * w - 1.5 * dpr)), 0, 3 * dpr, h);
+    if (ai) { g.fillStyle = cssVar('--haldi'); g.globalAlpha = 0.25; g.fillRect(t2x(ai.s, w), 0, Math.max(1, (ai.e - ai.s) / win * w), h); g.globalAlpha = 1; }
+    const px = t2x(t, w);
+    if (px >= -3 && px <= w + 3) { g.fillStyle = cssVar('--haldi'); g.fillRect(px - 1.5 * dpr, 0, 3 * dpr, h); }
   }
 }
-function waveSeek(e) {
+function waveTime(e) {
   const r = $('wave').getBoundingClientRect();
-  if (!dur()) return;
-  seekTo((e.clientX - r.left) / r.width * dur());
+  return x2t(e.clientX - r.left, r.width);
+}
+function waveSeek(e) { if (dur()) seekTo(waveTime(e), true); }
+/* find a draggable (unlocked) handle near the touch point */
+function hitHandle(e) {
+  const r = $('wave').getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  let best = null, bestScore = 1e9;
+  for (const l of S.lines) {
+    if (l.locked) continue;
+    for (const k of ['s', 'e']) {
+      const hx = t2x(l[k], r.width), hy = r.height * GRIP_Y[k];
+      const dx = Math.abs(hx - x);
+      if (dx > 24) continue;
+      const score = dx + Math.abs(hy - y) * 0.25;
+      if (score < bestScore) { bestScore = score; best = { id: l.id, k }; }
+    }
+  }
+  return best;
+}
+function dragHandle(e) {
+  const d = S.drag; if (!d) return;
+  const l = lineById(d.id); if (!l || l.locked) { S.drag = null; return; }
+  let t = Math.max(0, Math.min(dur(), waveTime(e)));
+  t = round2(t);
+  if (d.k === 's') t = Math.min(t, round2(l.e - 0.05)); else t = Math.max(t, round2(l.s + 0.05));
+  if (!d.moved) { pushHistory(); d.moved = true; }
+  l[d.k] = t;
+  const row = $('lines').querySelector('.line[data-id="' + l.id + '"]');
+  if (row) { const inp = row.querySelector('.tm[data-k="' + d.k + '"]'); if (inp) inp.value = fmtTime(t); }
+  S.waveDirty = true; updateTimeList();
+  seekTo(t, true);
+}
+function endDrag() {
+  const d = S.drag; S.drag = null; S.dragWave = false;
+  if (d && d.moved) { sortLines(); afterLinesChanged(false); scheduleSave(); }
 }
 
 /* ==================== STYLE + CANVAS DRAWING ==================== */
 const STYLE_CTL = [
-  { k: 'font', type: 'select', label: 'ফন্ট', opts: [['Hind Siliguri', 'Hind Siliguri'], ['Noto Sans Bengali', 'Noto Sans Bengali'], ['Baloo Da 2', 'Baloo Da 2'], ['Tiro Bangla', 'Tiro Bangla'], ['system', 'সিস্টেম ফন্ট']] },
+  { group: 'লেখা' },
+  { k: 'font', type: 'select', label: 'ফন্ট', wide: true, opts: [['Hind Siliguri', 'Hind Siliguri'], ['Noto Sans Bengali', 'Noto Sans Bengali'], ['Baloo Da 2', 'Baloo Da 2'], ['Tiro Bangla', 'Tiro Bangla'], ['system', 'সিস্টেম ফন্ট']] },
   { k: 'size', type: 'range', label: 'সাইজ', min: 24, max: 120, step: 1 },
-  { k: 'bold', type: 'check', label: 'বোল্ড' },
+  { k: 'lineSp', type: 'range', label: 'লাইন স্পেসিং', min: 1, max: 2, step: 0.05 },
   { k: 'color', type: 'color', label: 'লেখার রং' },
+  { k: 'bold', type: 'check', label: 'বোল্ড' },
+  { group: 'স্ট্রোক ও শ্যাডো' },
   { k: 'stroke', type: 'color', label: 'স্ট্রোকের রং' },
   { k: 'strokeW', type: 'range', label: 'স্ট্রোক পুরুত্ব', min: 0, max: 20, step: 1 },
   { k: 'shadow', type: 'check', label: 'শ্যাডো' },
-  { k: 'box', type: 'check', label: 'ব্যাকগ্রাউন্ড বক্স' },
+  { group: 'ব্যাকগ্রাউন্ড বক্স' },
+  { k: 'box', type: 'check', label: 'বক্স চালু' },
   { k: 'boxColor', type: 'color', label: 'বক্সের রং' },
   { k: 'boxOpacity', type: 'range', label: 'বক্স অপাসিটি %', min: 0, max: 100, step: 1 },
-  { k: 'pos', type: 'range', label: 'উপর-নিচ অবস্থান %', min: 5, max: 95, step: 1 },
+  { group: 'অবস্থান ও ছবির রং' },
+  { k: 'pos', type: 'range', label: 'উপর-নিচ %', min: 5, max: 95, step: 1 },
   { k: 'width', type: 'range', label: 'লেখার প্রস্থ %', min: 40, max: 100, step: 1 },
   { k: 'align', type: 'select', label: 'অ্যালাইনমেন্ট', opts: [['center', 'মাঝে'], ['left', 'বামে'], ['right', 'ডানে']] },
-  { k: 'lineSp', type: 'range', label: 'লাইন স্পেসিং', min: 1, max: 2, step: 0.05 },
   { k: 'bg', type: 'color', label: 'ব্যাকগ্রাউন্ড রং' }
 ];
 function buildStyleUI() {
   const host = $('styleGrid'); host.innerHTML = '';
   for (const c of STYLE_CTL) {
+    if (c.group) { const g = document.createElement('div'); g.className = 'sgroup'; g.textContent = c.group; host.appendChild(g); continue; }
     const id = 'st_' + c.k;
-    const row = document.createElement('div'); row.className = 'sctl' + (c.type === 'range' ? '' : ' two');
-    let h = '<label for="' + id + '">' + c.label + '</label>';
-    if (c.type === 'select') h += '<select id="' + id + '">' + c.opts.map(o => '<option value="' + esc(o[0]) + '">' + esc(o[1]) + '</option>').join('') + '</select>';
-    else if (c.type === 'range') h += '<input id="' + id + '" type="range" min="' + c.min + '" max="' + c.max + '" step="' + c.step + '"><output id="' + id + '_o"></output>';
-    else if (c.type === 'check') h += '<div><input id="' + id + '" type="checkbox"></div>';
-    else h += '<div><input id="' + id + '" type="color"></div>';
+    const row = document.createElement('div'); row.className = 'sctl' + (c.wide ? ' wide' : '') + (c.type === 'check' ? ' chk' : '');
+    let h;
+    if (c.type === 'check') h = '<input id="' + id + '" type="checkbox"><label for="' + id + '">' + c.label + '</label>';
+    else {
+      h = '<label for="' + id + '"><span>' + c.label + '</span>' + (c.type === 'range' ? '<output id="' + id + '_o"></output>' : '') + '</label>';
+      if (c.type === 'select') h += '<select id="' + id + '">' + c.opts.map(o => '<option value="' + esc(o[0]) + '">' + esc(o[1]) + '</option>').join('') + '</select>';
+      else if (c.type === 'range') h += '<input id="' + id + '" type="range" min="' + c.min + '" max="' + c.max + '" step="' + c.step + '">';
+      else h += '<input id="' + id + '" type="color">';
+    }
     row.innerHTML = h; host.appendChild(row);
     $(id).addEventListener('input', () => {
       const el = $(id);
@@ -1278,6 +1459,7 @@ function buildStyleUI() {
 }
 function syncStyleUI() {
   for (const c of STYLE_CTL) {
+    if (c.group) continue;
     const el = $('st_' + c.k); const v = S.style[c.k];
     if (c.type === 'check') el.checked = !!v; else el.value = v;
     if (c.type === 'range') $('st_' + c.k + '_o').textContent = String(v);
@@ -1382,6 +1564,10 @@ function drawFrame(g, W, H, t, strict) {
 function drawPreview(t) {
   const cv = $('preview');
   drawFrame(cv.getContext('2d'), cv.width, cv.height, t, S.exporting);
+  if ($('cardStyle').open) {                   // small sticky mirror, so style changes stay visible while scrolling
+    const m = $('preview2');
+    m.getContext('2d').drawImage(cv, 0, 0, m.width, m.height);
+  }
 }
 
 /* ==================== ERRORS ==================== */
@@ -1434,13 +1620,20 @@ function renderRaw() {
   }).join('');
 }
 /* Re-run only the text filters on stored raw output (the model is NOT run again). */
+function applyRawToEditor() {
+  const list = S.chunks.filter(c => c.status === 'done' && (c.raw || []).length);
+  if (!list.length) { toast('কাঁচা লেখা নেই'); return; }
+  pushHistory();
+  list.forEach(c => { c.segs = cleanSegments(c.raw, c, { bnOnly: S.bnOnly, total: S.duration }); commitChunk(c, true); });
+  toast(S.lines.length + 'টি লাইন এডিটরে বসেছে');
+}
 function reapplyFilters() {
   S.bnOnly = $('bnOnly').checked;
   const list = S.chunks.filter(c => c.status === 'done' && (c.raw || []).length);
   if (!list.length) return;
   if (S.lines.length && !confirm('লাইন আবার তৈরি হবে, হাতে করা এডিট মুছে যাবে। এগিয়ে যাবেন?')) { $('bnOnly').checked = !S.bnOnly; S.bnOnly = $('bnOnly').checked; return; }
   pushHistory();
-  list.forEach(c => { c.segs = cleanSegments(c.raw, c, { bnOnly: S.bnOnly, total: S.duration }); commitChunk(c); });
+  list.forEach(c => { c.segs = cleanSegments(c.raw, c, { bnOnly: S.bnOnly, total: S.duration }); commitChunk(c, true); });
   renderRaw(); hideErr();
   toast('ফিল্টার বদলে ' + S.lines.length + ' লাইন তৈরি হয়েছে');
 }
@@ -1516,7 +1709,8 @@ async function loadVoice(file) {
   if (S.running) await stopRun();
   await saveNow();
   pauseAudio();
-  Object.assign(S, { file, audio: null, energy: null, peaks: null, chunks: [], lines: [], history: [], duration: 0, voice: false, activeIdx: -1 });
+  Object.assign(S, { file, audio: null, energy: null, peaks: null, chunks: [], lines: [], history: [], duration: 0, voice: false, activeIdx: -1, zoom: 1, viewStart: 0, openId: null, drag: null });
+  $('zoomTxt').textContent = '×1';
   resetRows(['audio', 'engine', 'model', 'asr']); hideErr(); $('pSum').textContent = ''; $('rawBox').hidden = true;
   $('voiceInfo').innerHTML = '🎙️ <span class="nm">' + esc(file.name) + '</span><span class="muted small"> · ' + mb(file.size) + ' MB</span>';
   renderChips(); renderLines(true); renderTags(); S.waveDirty = true; updateUI();
@@ -1532,7 +1726,7 @@ async function loadVoice(file) {
     await sleep(20);
     S.audio = mono; S.duration = mono.length / SR;
     S.energy = frameEnergy(mono); S.thr = silenceThreshold(S.energy);
-    S.peaks = computePeaks(mono, 1600);
+    S.peaks = computePeaks(mono, Math.min(60000, Math.max(1600, Math.ceil(S.duration * 100))));
     S.voice = detectVoice(S.energy, S.thr);
     S.chunks = planChunks(mono.length, S.energy).map(c => Object.assign(c, {
       status: 'pending', segs: [], err: null, silent: isSilentRange(S.energy, c.ownStart, c.ownEnd, S.thr)
@@ -1718,7 +1912,7 @@ async function runTranscription(only) {
   if (ENV.blocked) { renderBanner(); toast('https:// থেকে খুলুন, এখানে লেখা তৈরি বন্ধ'); return; }
   hideErr();
   S.maxChars = Math.max(8, Math.min(80, Number($('maxChars').value) || 28));
-  S.bnOnly = $('bnOnly').checked;
+  S.bnOnly = $('bnOnly').checked; S.autoFill = $('autoFill').checked;
   const todo = S.chunks.filter(c => c.status !== 'done' && (!only || only.indexOf(c.i) >= 0));
   if (!todo.length) { toast('সব অংশ আগেই শেষ হয়েছে। নতুন করে করতে "নতুন করে শুরু" চাপুন'); return; }
   S.running = true; S.stop = false; S.t0 = performance.now(); S.stats = { sec: 0, ms: 0 };
@@ -1985,10 +2179,23 @@ function init() {
   $('seek').addEventListener('input', e => { if (dur()) seekTo(Number(e.target.value) / 1000 * dur()); });
   $('vol').addEventListener('input', e => setVolume(Number(e.target.value)));
   const wave = $('wave');
-  wave.addEventListener('pointerdown', e => { S.dragWave = true; try { wave.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ } waveSeek(e); });
-  wave.addEventListener('pointermove', e => { if (S.dragWave) waveSeek(e); });
-  const endDrag = () => { S.dragWave = false; };
+  wave.addEventListener('pointerdown', e => {
+    if (!dur()) return;
+    try { wave.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+    const hit = hitHandle(e);
+    if (hit) S.drag = { id: hit.id, k: hit.k, moved: false };
+    else { S.dragWave = true; waveSeek(e); }
+  });
+  wave.addEventListener('pointermove', e => { if (S.drag) dragHandle(e); else if (S.dragWave) waveSeek(e); });
   wave.addEventListener('pointerup', endDrag); wave.addEventListener('pointercancel', endDrag);
+  $('btnZoomIn').onclick = () => setZoom(S.zoom * 2);
+  $('btnZoomOut').onclick = () => setZoom(S.zoom / 2);
+  $('btnMarkS').onclick = markStart;
+  $('btnMarkE').onclick = markEnd;
+  $('btnCopyList').onclick = () => { const t = $('timeList').value; if (!t.trim()) { toast('তালিকা খালি'); return; } copyText(t, 'সময়সহ তালিকা কপি হয়েছে'); };
+  $('btnApplyRaw').onclick = applyRawToEditor;
+  S.autoFill = LS.get('autoFill', true); $('autoFill').checked = S.autoFill;
+  $('autoFill').onchange = () => { S.autoFill = $('autoFill').checked; LS.set('autoFill', S.autoFill); };
   if (window.ResizeObserver) new ResizeObserver(() => { S.waveDirty = true; requestRedraw(); }).observe(wave);
   window.addEventListener('resize', () => { S.waveDirty = true; requestRedraw(); });
 
