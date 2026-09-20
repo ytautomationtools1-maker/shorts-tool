@@ -1,0 +1,1850 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Shorts Video Tool — Auto Bengali Transcription</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+Da+2:wght@400;700&family=Hind+Siliguri:wght@400;600;700&family=Noto+Sans+Bengali:wght@400;700&family=Tiro+Bangla&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#e9edf3; --card:#ffffff; --ink:#111a2b; --muted:#56657a; --line:#ccd5e0; --field:#f4f6fa;
+  --accent:#3346d3; --accent-ink:#ffffff; --accent-soft:#e3e7fb;
+  --haldi:#f4b400; --haldi-soft:#fff3cc;
+  --ok:#1f7a4d; --ok-soft:#dcf3e6; --warn:#8a5a00; --warn-soft:#fff0c9; --err:#c4213f; --err-soft:#fde3e8;
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --bg:#0b101a; --card:#151c2b; --ink:#e8ecf5; --muted:#9aa8bf; --line:#27324a; --field:#0f1522;
+  --accent:#7d8dff; --accent-ink:#0b101a; --accent-soft:#222c57;
+  --haldi:#ffc83d; --haldi-soft:#3a3010;
+  --ok:#57d18f; --ok-soft:#12301f; --warn:#ffcf6b; --warn-soft:#3a2d0a; --err:#ff7a92; --err-soft:#3d1420;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b101a; --card:#151c2b; --ink:#e8ecf5; --muted:#9aa8bf; --line:#27324a; --field:#0f1522;
+    --accent:#7d8dff; --accent-ink:#0b101a; --accent-soft:#222c57;
+    --haldi:#ffc83d; --haldi-soft:#3a3010;
+    --ok:#57d18f; --ok-soft:#12301f; --warn:#ffcf6b; --warn-soft:#3a2d0a; --err:#ff7a92; --err-soft:#3d1420;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:400 16px/1.55 "Hind Siliguri","Noto Sans Bengali",system-ui,sans-serif;overflow-x:hidden}
+.wrap{max-width:720px;margin:0 auto;padding:12px 12px 60px;display:flex;flex-direction:column;gap:14px}
+h1{font-size:21px;line-height:1.25;margin:0;font-weight:700}
+h2{font-size:18px;margin:0 0 10px;font-weight:700}
+.sub{margin:2px 0 0;color:var(--muted);font-size:14px}
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:6px 2px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;min-width:0}
+.muted{color:var(--muted)}
+.small{font-size:13.5px}
+.mono{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+.hide{display:none!important}
+[hidden]{display:none!important}
+
+/* buttons */
+.btn{min-height:52px;padding:0 16px;border-radius:14px;border:1.5px solid var(--line);background:var(--field);color:var(--ink);
+  font:600 16px/1.2 inherit;font-family:inherit;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  cursor:pointer;text-align:center;user-select:none;touch-action:manipulation}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.btn.danger{background:var(--err-soft);color:var(--err);border-color:var(--err)}
+.btn.sm{min-height:44px;padding:0 12px;font-size:15px;border-radius:12px}
+.btn.icon{min-width:48px;padding:0}
+.btn:disabled{opacity:.42;pointer-events:none}
+.btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.chip:focus-visible{outline:3px solid var(--haldi);outline-offset:2px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.row>.grow{flex:1 1 140px}
+
+/* banners */
+.banner{border-radius:14px;padding:12px 14px;margin-bottom:0;font-size:15px;line-height:1.5;border:1.5px solid}
+.banner.err{background:var(--err-soft);color:var(--err);border-color:var(--err)}
+.banner.warn{background:var(--warn-soft);color:var(--warn);border-color:var(--haldi)}
+.banner.ok{background:var(--ok-soft);color:var(--ok);border-color:var(--ok)}
+#envBanner{display:flex;flex-direction:column;gap:8px}
+#envBanner:empty{display:none}
+
+/* file info */
+.finfo{display:flex;gap:10px;align-items:center;margin-top:10px;min-width:0}
+.finfo img{width:52px;height:52px;object-fit:cover;border-radius:10px;border:1px solid var(--line);flex:none}
+.finfo .nm{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14.5px}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.tag{font-size:13.5px;padding:3px 10px;border-radius:99px;background:var(--field);border:1px solid var(--line)}
+.tag.ok{background:var(--ok-soft);color:var(--ok);border-color:var(--ok)}
+.tag.bad{background:var(--err-soft);color:var(--err);border-color:var(--err)}
+
+/* preview */
+.stage{display:flex;justify-content:center}
+#preview{display:block;width:min(100%,300px);height:auto;aspect-ratio:9/16;border-radius:14px;background:#000;border:1px solid var(--line)}
+.player{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.pl-row{display:flex;gap:8px;align-items:center}
+.pl-row .btn{flex:none}
+#btnPlay{min-width:64px;font-size:22px}
+.time{flex:1;text-align:center;font-size:13px;white-space:nowrap;min-width:0}
+input[type=range]{width:100%;min-height:36px;accent-color:var(--accent);margin:0}
+.volrow{display:flex;align-items:center;gap:10px}
+.volrow span{flex:none}
+#wave{display:block;width:100%;height:96px;border-radius:12px;background:var(--field);border:1px solid var(--line);touch-action:pan-y;cursor:pointer}
+
+/* details/style */
+details.card>summary{font-weight:700;font-size:18px;cursor:pointer;min-height:36px;list-style-position:inside}
+.sgrid{display:grid;grid-template-columns:1fr;gap:12px;margin-top:12px}
+.sctl{display:grid;grid-template-columns:130px 1fr 44px;gap:8px;align-items:center}
+.sctl label{font-size:15px}
+.sctl output{font-size:13.5px;text-align:right;color:var(--muted)}
+.sctl.two{grid-template-columns:130px 1fr}
+select,input[type=text],input[type=number],textarea{font:inherit;font-size:16px;color:var(--ink);background:var(--field);border:1.5px solid var(--line);border-radius:12px;padding:8px 10px;width:100%;min-height:46px}
+input[type=color]{width:64px;height:44px;padding:2px;border-radius:10px;border:1.5px solid var(--line);background:var(--field)}
+input[type=checkbox]{width:26px;height:26px;accent-color:var(--accent)}
+
+/* progress */
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.field>label{font-weight:600;font-size:15px}
+.prow{padding:8px 0;border-top:1px solid var(--line)}
+.prow:first-child{border-top:0}
+.ph{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.ph b{font-size:15px}
+.ph .pt{font-size:13.5px;color:var(--muted);word-break:break-word;min-width:0;flex:1 1 100%}
+.bar{height:12px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:6px;position:relative}
+.bar>i{display:block;height:100%;width:0;background:var(--accent);border-radius:99px;transition:width .2s}
+.bar.ind>i{width:34%;position:absolute;animation:slide 1.3s ease-in-out infinite;transition:none}
+.bar.ok>i{background:var(--ok)}
+.bar.err>i{background:var(--err)}
+@keyframes slide{0%{left:-34%}100%{left:100%}}
+#pSum{font-size:14.5px;margin:8px 0 4px}
+.logmini,#dbg{font:12.5px/1.45 ui-monospace,Menlo,Consolas,monospace;background:var(--field);border:1px solid var(--line);border-radius:12px;padding:8px 10px;white-space:pre-wrap;word-break:break-all;margin:6px 0 0;color:var(--muted)}
+.logmini{min-height:3.2em}
+#dbg{max-height:260px;overflow:auto;color:var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{min-width:44px;height:44px;border-radius:10px;border:1.5px dashed var(--line);background:var(--field);color:var(--muted);font:600 15px inherit;font-family:inherit;cursor:pointer;padding:0 6px}
+.chip.running{border-style:solid;border-color:var(--accent);color:var(--accent);animation:pulse 1.1s ease-in-out infinite}
+.chip.done{border-style:solid;border-color:var(--ok);background:var(--ok-soft);color:var(--ok)}
+.chip.done.silent{opacity:.6}
+.chip.failed{border-style:solid;border-color:var(--err);background:var(--err-soft);color:var(--err)}
+@keyframes pulse{50%{opacity:.45}}
+.legend{font-size:13px;color:var(--muted);margin-top:6px}
+#errBox{margin-top:12px}
+#errBox pre{white-space:pre-wrap;word-break:break-word;font:12.5px/1.45 ui-monospace,Menlo,Consolas,monospace;background:var(--card);border-radius:10px;padding:8px;margin:6px 0 0;max-height:200px;overflow:auto;color:var(--ink)}
+#errBox ul{margin:6px 0 0;padding-left:20px}
+
+/* editor */
+#lines{position:relative;max-height:62vh;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:10px;padding:2px}
+.line{border:1.5px solid var(--line);border-radius:14px;padding:10px;background:var(--field);display:flex;flex-direction:column;gap:8px;flex:none}
+.line.active{border-color:var(--haldi);background:var(--haldi-soft)}
+.lh{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.num{min-width:34px;height:34px;border-radius:99px;background:var(--accent);color:var(--accent-ink);display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:700}
+.tm{width:104px!important;min-height:44px;text-align:center;padding:4px 6px!important}
+.lt{min-height:64px;resize:vertical;font-size:17px;line-height:1.5}
+.lrow{display:flex;flex-wrap:wrap;gap:6px}
+.lrow .btn{flex:1 1 auto}
+.empty{padding:14px;text-align:center}
+.exp-out{margin-top:10px}
+
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:15px;max-width:90vw;z-index:50;opacity:0;pointer-events:none;transition:opacity .2s;text-align:center}
+#toast.show{opacity:1}
+@media (max-width:380px){.sctl{grid-template-columns:100px 1fr 40px}.tm{width:96px!important}}
+@media (prefers-reduced-motion:reduce){.bar.ind>i,.chip.running{animation:none}}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Shorts Video Tool — Auto Bengali Transcription</h1>
+      <p class="sub">ভয়েস আপলোড করলেই বাংলা সাবটাইটেল তৈরি। সবকিছু আপনার ফোনের ব্রাউজারেই চলে, অডিও কোথাও আপলোড হয় না।</p>
+    </div>
+    <button id="themeBtn" class="btn sm icon" aria-label="থিম বদলান" title="থিম">🌓</button>
+  </header>
+
+  <div id="envBanner"></div>
+
+  <!-- 1. FILES: voice + image side by side at the top -->
+  <section class="card" id="cardFiles">
+    <div class="grid2">
+      <label class="btn primary" for="voiceInput">🎙️ ভয়েস আপলোড</label>
+      <label class="btn" for="imageInput">🖼️ ছবি আপলোড</label>
+    </div>
+    <input id="voiceInput" type="file" accept="audio/*,video/mp4,video/webm,.mp3,.wav,.m4a,.aac,.ogg,.webm,.mp4" hidden>
+    <input id="imageInput" type="file" accept="image/*" hidden>
+    <div id="voiceInfo" class="finfo muted small">ফাইল: MP3, WAV, M4A, AAC, OGG, WebM, MP4</div>
+    <div id="metaTags" class="tags" hidden></div>
+    <div id="imageInfo" class="finfo" hidden>
+      <img id="imgThumb" alt="ব্যাকগ্রাউন্ড ছবির থাম্বনেইল">
+      <div class="nm" id="imgName"></div>
+      <button id="imgClear" class="btn sm">✕ সরান</button>
+    </div>
+    <p class="small muted" style="margin:8px 0 0">ছবি ভিডিওর ব্যাকগ্রাউন্ড হবে (cover ফিট)। HEIC ছবি কিছু ফোনে লোড নাও হতে পারে, তখন JPG/PNG দিন।</p>
+  </section>
+
+  <!-- 2. PREVIEW + PLAYER -->
+  <section class="card" id="cardPreview">
+    <div class="stage"><canvas id="preview" width="720" height="1280" aria-label="9:16 ভিডিও প্রিভিউ"></canvas></div>
+    <div class="player">
+      <canvas id="wave" aria-label="ওয়েভফর্ম"></canvas>
+      <input id="seek" type="range" min="0" max="1000" value="0" step="1" aria-label="টাইমলাইন">
+      <div class="pl-row">
+        <button id="btnPrev" class="btn icon" aria-label="আগের লাইন">⏮</button>
+        <button id="btnPlay" class="btn primary icon" aria-label="প্লে/পজ">▶</button>
+        <button id="btnNext" class="btn icon" aria-label="পরের লাইন">⏭</button>
+        <div id="timeTxt" class="time mono">00:00.00 / 00:00.00</div>
+      </div>
+      <div class="volrow"><span>🔊</span><input id="vol" type="range" min="0" max="1" step="0.05" value="1" aria-label="ভলিউম"></div>
+    </div>
+  </section>
+
+  <!-- 3. SUBTITLE STYLE -->
+  <details class="card" id="cardStyle">
+    <summary>🎨 সাবটাইটেল স্টাইল</summary>
+    <div class="sgrid" id="styleGrid"></div>
+    <div class="row" style="margin-top:12px"><button id="btnStyleReset" class="btn sm">↺ ডিফল্ট স্টাইল</button></div>
+    <p class="small muted" style="margin:8px 0 0">এই অংশ খোলা থাকলে পজ অবস্থায় কাছের লাইনটি প্রিভিউতে দেখানো হয়, যাতে স্টাইল বুঝতে পারেন।</p>
+  </details>
+
+  <!-- 4. TRANSCRIBE -->
+  <section class="card" id="cardAsr">
+    <h2>✍️ স্বয়ংক্রিয় বাংলা লেখা</h2>
+    <div class="field">
+      <label for="model">Whisper মডেল</label>
+      <select id="model"></select>
+      <div id="modelNote" class="small muted"></div>
+      <div id="cacheBadge" class="small"></div>
+    </div>
+    <div class="field">
+      <label for="maxChars">প্রতি লাইনে সর্বোচ্চ অক্ষর</label>
+      <input id="maxChars" type="number" inputmode="numeric" min="8" max="80" value="28">
+    </div>
+    <label class="row small" style="margin:0 0 10px"><input type="checkbox" id="bnOnly" checked> <span>শুধু বাংলা অক্ষরসহ লাইন রাখুন (ভুয়া ইংরেজি লাইন বাদ)</span></label>
+    <div class="grid2">
+      <button id="btnStart" class="btn primary" disabled>▶ লেখা তৈরি শুরু</button>
+      <button id="btnReset" class="btn" disabled>🔄 নতুন করে শুরু</button>
+    </div>
+    <button id="btnStop" class="btn danger" style="width:100%;margin-top:10px" disabled>⏹ থামান</button>
+
+    <div id="pRows" style="margin-top:12px"></div>
+    <div id="pSum" class="mono muted"></div>
+    <pre id="pLog" class="logmini"></pre>
+    <div id="chips" class="chips"></div>
+    <div class="legend" id="chipLegend" hidden>ধূসর = অপেক্ষায় · নীল = চলছে · সবুজ = শেষ · লাল = ব্যর্থ (চাপলে আবার চেষ্টা হবে)। অন্য অংশ চাপলে সেখানে প্লেব্যাক যাবে।</div>
+    <div id="errBox" class="banner err" hidden></div>
+  </section>
+
+  <!-- 5. EDITOR -->
+  <section class="card" id="cardEditor">
+    <h2>📝 লাইন এডিটর <span id="lineCount" class="muted small"></span></h2>
+    <div class="row" style="margin-bottom:10px">
+      <button id="btnAdd" class="btn sm grow">＋ এখানে নতুন লাইন</button>
+      <button id="btnUndo" class="btn sm grow" disabled>↩ আনডু</button>
+      <button id="btnResplit" class="btn sm grow">✂ আবার ভাগ করুন</button>
+      <button id="btnSrt" class="btn sm primary grow">⬇ SRT ডাউনলোড</button>
+    </div>
+    <div id="lines"></div>
+    <p class="small muted" style="margin:8px 0 0">লেখা বদলালে সময় বদলায় না। বদলানো সবকিছু নিজে থেকেই সেভ হয়।</p>
+  </section>
+
+  <!-- 6. EXPORT -->
+  <section class="card" id="cardExport">
+    <h2>🎬 ভিডিও এক্সপোর্ট</h2>
+    <div class="field">
+      <label for="expRes">রেজোলিউশন</label>
+      <select id="expRes">
+        <option value="720x1280">720 × 1280 (দ্রুত)</option>
+        <option value="1080x1920">1080 × 1920 (ফুল HD)</option>
+      </select>
+    </div>
+    <p class="small muted" style="margin:0 0 10px">রিয়েল-টাইমে রেকর্ড হয়, তাই ভিডিওর সমান সময় লাগবে। রেকর্ডিং চলাকালে এই ট্যাবেই থাকুন, স্ক্রিন অন রাখুন।</p>
+    <div class="grid2">
+      <button id="btnExport" class="btn primary" disabled>🎬 ভিডিও এক্সপোর্ট</button>
+      <button id="btnExpCancel" class="btn danger" hidden>✕ বাতিল</button>
+    </div>
+    <div class="bar" id="expBar" style="margin-top:12px" hidden><i></i></div>
+    <div id="expTxt" class="small muted mono" style="margin-top:6px"></div>
+    <div id="expOut" class="exp-out"></div>
+  </section>
+
+  <!-- 7. DEBUG -->
+  <section class="card" id="cardDebug">
+    <h2>🪲 Debug log <span class="small muted">(আটকে গেলে কপি করে পাঠান)</span></h2>
+    <pre id="dbg"></pre>
+    <div class="grid2" style="margin-top:10px">
+      <button id="btnCopyLog" class="btn">📋 Copy log</button>
+      <button id="btnClearLog" class="btn">🧹 লগ মুছুন</button>
+    </div>
+  </section>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script type="text/plain" id="worker-src">
+'use strict';
+/* Whisper worker: transformers.js v2.17.2 (ONNX Runtime Web, WASM). Bengali, task = transcribe. */
+var LIB = 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
+var tf = null, asr = null;
+
+function send(m) { self.postMessage(m); }
+function wlog(level, msg) { send({ type: 'log', level: level, msg: msg }); }
+function errText(e) { return (e && e.message) ? String(e.message) : String(e); }
+function simdOk() {
+  try {
+    return WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,10,1,8,0,65,0,253,15,253,98,11]));
+  } catch (e) { return false; }
+}
+
+/* Download the ONNX Runtime WASM file ourselves so real byte progress can be shown.
+   ONNX Runtime later fetches the same URL from the HTTP cache. Failure is non-fatal. */
+async function prefetchEngine(url) {
+  send({ type: 'phase', name: 'engine' });
+  send({ type: 'engine', state: 'start', url: url });
+  var res = await fetch(url);
+  if (!res.ok) throw new Error('HTTP ' + res.status + ' for ' + url);
+  var total = Number(res.headers.get('content-length')) || 0, loaded = 0, last = 0;
+  var reader = res.body.getReader();
+  for (;;) {
+    var r = await reader.read();
+    if (r.done) break;
+    loaded += r.value.length;
+    var now = Date.now();
+    if (now - last > 120) { last = now; send({ type: 'engine', state: 'progress', loaded: loaded, total: total }); }
+  }
+  send({ type: 'engine', state: 'done', loaded: loaded, total: total });
+}
+
+async function load(modelId) {
+  send({ type: 'phase', name: 'import' });
+  wlog('info', 'engine.load ' + modelId + ' ...');
+  wlog('info', 'worker env: secure=' + self.isSecureContext + ' coi=' + self.crossOriginIsolated + ' simd=' + simdOk() +
+    ' cores=' + (self.navigator && navigator.hardwareConcurrency) + ' cache=' + (typeof caches !== 'undefined'));
+  var urls = [LIB + '/dist/transformers.min.js', LIB];
+  var lastErr = null;
+  for (var i = 0; i < urls.length && !tf; i++) {
+    try {
+      wlog('info', 'lib import ' + urls[i]);
+      tf = await import(urls[i]);
+      wlog('info', 'lib imported');
+    } catch (e) { lastErr = e; wlog('warn', 'lib import failed: ' + errText(e)); }
+  }
+  if (!tf) throw lastErr || new Error('transformers.js import failed');
+
+  var env = tf.env;
+  env.allowLocalModels = false;
+  env.allowRemoteModels = true;
+  env.useBrowserCache = true;                       // model files are kept in the Cache API
+  if (env.backends && env.backends.onnx && env.backends.onnx.wasm) {
+    env.backends.onnx.wasm.wasmPaths = LIB + '/dist/';
+    env.backends.onnx.wasm.numThreads = 1;          // no SharedArrayBuffer needed
+    env.backends.onnx.wasm.proxy = false;
+  }
+  try {
+    await prefetchEngine(LIB + '/dist/' + (simdOk() ? 'ort-wasm-simd.wasm' : 'ort-wasm.wasm'));
+  } catch (e) {
+    wlog('warn', 'engine prefetch skipped: ' + errText(e));
+    send({ type: 'engine', state: 'skip', msg: errText(e) });
+  }
+
+  send({ type: 'phase', name: 'model' });
+  wlog('info', 'pipeline create ' + modelId);
+  asr = await tf.pipeline('automatic-speech-recognition', modelId, {
+    quantized: true,
+    progress_callback: function (p) {
+      send({ type: 'dl', p: { status: p.status, file: p.file, name: p.name, progress: p.progress, loaded: p.loaded, total: p.total } });
+    }
+  });
+  wlog('info', 'pipeline ready');
+  send({ type: 'ready', modelId: modelId });
+}
+
+self.onmessage = async function (e) {
+  var m = e.data;
+  try {
+    if (m.type === 'load') {
+      await load(m.modelId);
+    } else if (m.type === 'transcribe') {
+      if (!asr) throw new Error('model is not loaded');
+      var t0 = Date.now();
+      var out = await asr(new Float32Array(m.buffer), {
+        language: 'bengali', task: 'transcribe', return_timestamps: true
+      });
+      var chunks = (out.chunks || []).map(function (c) {
+        var ts = c.timestamp || [null, null];
+        return { text: c.text, s: ts[0], e: ts[1] };
+      });
+      send({ type: 'result', id: m.id, text: out.text, chunks: chunks, ms: Date.now() - t0 });
+    }
+  } catch (err) {
+    send({ type: 'error', id: m.type === 'transcribe' ? m.id : null, message: errText(err), stack: (err && err.stack) ? String(err.stack) : '' });
+  }
+};
+
+</script>
+<script>
+'use strict';
+/* ==================== CORE: pure helpers (no DOM) ==================== */
+const SR = 16000;            // Whisper sample rate
+const FRAME = 320;           // 20 ms energy frame at 16 kHz
+const CHUNK_AUDIO_MAX = 28;  // max seconds of audio per chunk (Whisper window is 30 s)
+const CHUNK_PAD = 0.75;      // context added on each side => 1.5 s overlap between neighbours
+
+function pad2(n) { return (n < 10 ? '0' : '') + n; }
+function round2(x) { return Math.round(x * 100) / 100; }
+
+/** seconds -> "mm:ss.cc" */
+function fmtTime(t) {
+  if (!isFinite(t) || t < 0) t = 0;
+  const cs = Math.round(t * 100);
+  return pad2(Math.floor(cs / 6000)) + ':' + pad2(Math.floor((cs % 6000) / 100)) + '.' + pad2(cs % 100);
+}
+
+/** "mm:ss.cc" | "ss.cc" | "h:mm:ss" (Bengali digits allowed) -> seconds, NaN if invalid */
+function parseTime(str) {
+  str = String(str).trim().replace(/[০-৯]/g, d => '০১২৩৪৫৬৭৮৯'.indexOf(d)).replace(',', '.');
+  if (!str) return NaN;
+  const parts = str.split(':');
+  if (parts.length > 3) return NaN;
+  let secs = 0;
+  for (const p of parts) {
+    if (!/^\d+(\.\d+)?$/.test(p)) return NaN;
+    secs = secs * 60 + parseFloat(p);
+  }
+  return secs;
+}
+
+/** seconds -> "m:ss" or "h:mm:ss" for elapsed / ETA */
+function fmtHMS(sec) {
+  if (!isFinite(sec) || sec < 0) sec = 0;
+  sec = Math.round(sec);
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  return (h ? h + ':' + pad2(m) : m) + ':' + pad2(s);
+}
+
+function fmtSrt(t) {
+  const ms = Math.max(0, Math.round(t * 1000));
+  const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000), s = Math.floor((ms % 60000) / 1000);
+  return pad2(h) + ':' + pad2(m) + ':' + pad2(s) + ',' + String(ms % 1000).padStart(3, '0');
+}
+
+function buildSrt(lines) {
+  return lines.map((l, i) => (i + 1) + '\n' + fmtSrt(l.s) + ' --> ' + fmtSrt(l.e) + '\n' + String(l.t).replace(/\r/g, '') + '\n').join('\n');
+}
+
+/* grapheme-aware length (Bengali conjuncts / matras) */
+let _seg = null;
+try { if (typeof Intl !== 'undefined' && Intl.Segmenter) _seg = new Intl.Segmenter('bn', { granularity: 'grapheme' }); } catch (e) { _seg = null; }
+function glen(s) {
+  if (_seg) { let n = 0; for (const _ of _seg.segment(s)) n++; return n; }
+  return Array.from(s).length;
+}
+
+/* ---------- audio analysis ---------- */
+function frameEnergy(audio) {
+  const n = Math.floor(audio.length / FRAME);
+  const e = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    let sum = 0;
+    const o = i * FRAME;
+    for (let j = 0; j < FRAME; j++) { const v = audio[o + j]; sum += v * v; }
+    e[i] = Math.sqrt(sum / FRAME);
+  }
+  return e;
+}
+
+function silenceThreshold(energy) {
+  if (!energy.length) return 0.006;
+  const sorted = Float32Array.from(energy).sort();
+  const p95 = sorted[Math.floor(sorted.length * 0.95)] || 0;
+  return Math.max(0.006, 0.04 * p95);
+}
+
+function countAbove(energy, fromSec, toSec, thr) {
+  const a = Math.max(0, Math.floor(fromSec * SR / FRAME));
+  const b = Math.min(energy.length, Math.ceil(toSec * SR / FRAME));
+  let c = 0;
+  for (let i = a; i < b; i++) if (energy[i] > thr) c++;
+  return c;
+}
+function isSilentRange(energy, fromSec, toSec, thr) { return countAbove(energy, fromSec, toSec, thr) < 15; }  // < 0.3 s of sound
+function detectVoice(energy, thr) { return countAbove(energy, 0, energy.length * FRAME / SR, thr) >= 25; }    // >= 0.5 s of sound
+
+/** waveform peaks normalised to 0..1 */
+function computePeaks(audio, n) {
+  const peaks = new Float32Array(n);
+  const step = audio.length / n;
+  let max = 1e-9;
+  for (let i = 0; i < n; i++) {
+    const a = Math.floor(i * step), b = Math.max(a + 1, Math.floor((i + 1) * step));
+    let m = 0;
+    for (let j = a; j < b && j < audio.length; j++) { const v = Math.abs(audio[j]); if (v > m) m = v; }
+    peaks[i] = m; if (m > max) max = m;
+  }
+  for (let i = 0; i < n; i++) peaks[i] /= max;
+  return peaks;
+}
+
+/* ---------- chunk planning ----------
+   Each chunk OWNS [ownStart, ownEnd). Audio sent to Whisper = own range + CHUNK_PAD on both sides
+   (<= 28 s). Cuts are placed at the quietest 100 ms in the last part of the window. */
+function planChunks(totalSamples, energy) {
+  const sr = SR, fr = FRAME;
+  const ownMax = (CHUNK_AUDIO_MAX - 2 * CHUNK_PAD) * sr;     // 26.5 s
+  const lastLimit = (CHUNK_AUDIO_MAX + 0.5) * sr;            // remaining <= 28.5 s -> final chunk
+  const pad = CHUNK_PAD * sr;
+  const chunks = [];
+  let start = 0;
+  while (start < totalSamples) {
+    let end;
+    if (totalSamples - start <= lastLimit) {
+      end = totalSamples;
+    } else {
+      const from = Math.floor((start + 15 * sr) / fr), to = Math.floor((start + ownMax) / fr);
+      let best = to, bestE = Infinity;
+      for (let i = from; i <= to; i++) {
+        let s = 0, c = 0;
+        for (let k = -2; k <= 2; k++) { const v = energy[i + k]; if (v !== undefined) { s += v; c++; } }
+        const avg = c ? s / c : 0;
+        if (avg <= bestE) { bestE = avg; best = i; }   // "<=" prefers the later of equal minima
+      }
+      end = best * fr;
+      if (end <= start) end = Math.min(totalSamples, start + ownMax);
+    }
+    chunks.push({
+      i: chunks.length,
+      ownStart: start / sr, ownEnd: end / sr,
+      aStart: Math.max(0, start - pad) / sr, aEnd: Math.min(totalSamples, end + pad) / sr
+    });
+    start = end;
+  }
+  return chunks;
+}
+
+/* ---------- hallucination / loop handling ---------- */
+function collapseLoops(text) {
+  let w = String(text).split(/\s+/).filter(Boolean);
+  for (let n = 1; n <= 6; n++) {
+    const out = [];
+    let i = 0;
+    while (i < w.length) {
+      let rep = 1;
+      while (i + (rep + 1) * n <= w.length) {
+        let same = true;
+        for (let k = 0; k < n; k++) if (w[i + k] !== w[i + rep * n + k]) { same = false; break; }
+        if (!same) break;
+        rep++;
+      }
+      if (rep >= 4) { for (let k = 0; k < n; k++) out.push(w[i + k]); i += rep * n; }
+      else { out.push(w[i]); i++; }
+    }
+    w = out;
+  }
+  return w.join(' ');
+}
+
+/** raw = [{text, s, e}] relative to chunk audio. Returns absolute, owned, de-duplicated segments. */
+function cleanSegments(raw, ch, opts) {
+  opts = opts || {};
+  const out = [];
+  const aDur = ch.aEnd - ch.aStart;
+  let prevNorm = '';
+  for (const r of (raw || [])) {
+    const text = collapseLoops(String(r.text || '').replace(/\s+/g, ' ').trim());
+    if (!text) continue;
+    if (opts.bnOnly && !/[\u0980-\u09FF]/.test(text)) continue;
+    let s = typeof r.s === 'number' ? r.s : 0;
+    let e = typeof r.e === 'number' ? r.e : aDur;
+    if (e <= s) e = Math.min(aDur, s + 1);
+    s += ch.aStart; e += ch.aStart;
+    const mid = (s + e) / 2;
+    if (mid < ch.ownStart || mid >= ch.ownEnd) continue;        // neighbour chunk owns it
+    s = Math.max(0, s);
+    if (opts.total) e = Math.min(e, opts.total);
+    if (e > ch.ownEnd && ch.ownEnd > s + 0.2) e = ch.ownEnd;      // do not run into the next chunk
+    if (e <= s) e = s + 0.2;
+    const norm = text.replace(/[\s।,.!?]/g, '');
+    if (norm && norm === prevNorm) continue;                     // repeated identical segment
+    prevNorm = norm;
+    out.push({ s: round2(s), e: round2(e), t: text });
+  }
+  return out;
+}
+
+/* ---------- long segment -> readable lines with proportional timing ---------- */
+function splitSegment(s, e, text, maxChars) {
+  maxChars = Math.max(8, maxChars | 0);
+  const total = glen(text);
+  if (total <= maxChars) return [{ s: round2(s), e: round2(e), t: text }];
+  const words = text.split(' ');
+  const n = Math.ceil(total / maxChars);
+  const target = total / n;
+  const lines = [];
+  let cur = [], curLen = 0;
+  for (const w of words) {
+    const wl = glen(w);
+    const add = cur.length ? curLen + 1 + wl : wl;
+    if (cur.length && (add > maxChars || (curLen >= target && lines.length < n - 1))) {
+      lines.push(cur.join(' ')); cur = [w]; curLen = wl;
+    } else { cur.push(w); curLen = add; }
+  }
+  if (cur.length) lines.push(cur.join(' '));
+  const lens = lines.map(glen);
+  const sum = lens.reduce((a, b) => a + b, 0) || 1;
+  const dur = e - s;
+  let t = s;
+  return lines.map((l, i) => {
+    const d = dur * lens[i] / sum;
+    const o = { s: round2(t), e: round2(i === lines.length - 1 ? e : t + d), t: l };
+    t += d;
+    return o;
+  });
+}
+
+function linesFromSegs(segs, maxChars) {
+  const out = [];
+  for (const g of segs) for (const l of splitSegment(g.s, g.e, g.t, maxChars)) out.push(l);
+  return out;
+}
+
+/* ==================== APP ==================== */
+const T0 = performance.now();
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const mb = b => (b / 1048576).toFixed(1);
+
+const MODELS = {
+  tiny:  { id: 'Xenova/whisper-tiny',  name: 'Whisper Tiny',  size: '~40 MB',  note: 'দ্রুত, কিন্তু বাংলায় প্রায়ই ভুল করে। শুধু টেস্টের জন্য।' },
+  base:  { id: 'Xenova/whisper-base',  name: 'Whisper Base',  size: '~80 MB',  note: 'মাঝারি গতি ও মান।' },
+  small: { id: 'Xenova/whisper-small', name: 'Whisper Small', size: '~250 MB', note: 'বাংলায় সবচেয়ে ভালো (সুপারিশকৃত), তবে ধীর ও বেশি মেমরি লাগে।' }
+};
+
+const STYLE_DEFAULTS = {
+  font: 'Hind Siliguri', size: 64, bold: true, color: '#ffffff', stroke: '#000000', strokeW: 6,
+  shadow: true, box: false, boxColor: '#000000', boxOpacity: 55, pos: 78, width: 88,
+  align: 'center', lineSp: 1.35, bg: '#101418'
+};
+
+const S = {
+  file: null, audio: null, energy: null, peaks: null, thr: 0.006, duration: 0, voice: false,
+  chunks: [], lines: [], idSeq: 0, history: [],
+  modelKey: 'small', maxChars: 28, bnOnly: true,
+  running: false, stop: false, t0: 0, stats: { sec: 0, ms: 0 }, elapsedTimer: 0,
+  audioEl: null, audioUrl: null, playing: false,
+  ctx: null, gain: null, streamDest: null, srcNode: null,
+  img: null, imgUrl: null, imgName: '',
+  style: null, activeIdx: -1, exporting: false, exportCancel: false,
+  bg: null, bgKey: '', waveCache: null, waveDirty: true, raf: 0, pendingRender: false, dragWave: false,
+  saveTimer: 0, wakeLock: null
+};
+
+/* ---------- on-screen + console log ---------- */
+const LOGS = [];
+let logTimer = 0;
+function log(level, msg) {
+  const line = ((performance.now() - T0) / 1000).toFixed(1) + 's [' + level + '] ' + msg;
+  LOGS.push(line);
+  if (LOGS.length > 800) LOGS.shift();
+  try { (level === 'error' ? console.error : level === 'warn' ? console.warn : console.log)(line); } catch (e) { /* ignore */ }
+  if (!logTimer) logTimer = setTimeout(() => {
+    logTimer = 0;
+    const d = $('dbg'); if (d) { d.textContent = LOGS.join('\n'); d.scrollTop = d.scrollHeight; }
+    const m = $('pLog'); if (m) m.textContent = LOGS.slice(-4).join('\n');
+  }, 120);
+}
+function msgOf(e) { return (e && e.message) ? String(e.message) : String(e); }
+
+async function copyLog() {
+  const text = envSummary() + '\n' + LOGS.join('\n');
+  try { await navigator.clipboard.writeText(text); toast('লগ কপি হয়েছে'); return; } catch (e) { /* fallback below */ }
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); toast('লগ কপি হয়েছে'); } catch (e) { toast('কপি করা যায়নি, লগ বক্স চেপে ধরে সিলেক্ট করুন'); }
+  ta.remove();
+}
+
+let toastTimer = 0;
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* ignore */ } }
+};
+
+/* ---------- environment checks ---------- */
+const ENV = (function () {
+  const proto = location.protocol;
+  const secure = window.isSecureContext === true;
+  let simd = false;
+  try { simd = WebAssembly.validate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11])); } catch (e) { /* no wasm */ }
+  return {
+    proto, secure, simd,
+    blocked: !(secure && (proto === 'https:' || proto === 'http:')),
+    wasm: typeof WebAssembly === 'object', worker: typeof Worker === 'function',
+    idb: 'indexedDB' in window, coi: self.crossOriginIsolated === true
+  };
+})();
+function envSummary() {
+  return 'ENV proto=' + ENV.proto + ' secure=' + ENV.secure + ' simd=' + ENV.simd + ' wasm=' + ENV.wasm + ' worker=' + ENV.worker +
+    ' idb=' + ENV.idb + ' coi=' + ENV.coi + ' cores=' + navigator.hardwareConcurrency + ' mem=' + (navigator.deviceMemory || '?') + 'GB\nUA ' + navigator.userAgent;
+}
+function renderBanner() {
+  const b = [];
+  if (ENV.blocked) {
+    b.push('<div class="banner err"><b>⛔ এই পেজ ' + esc(ENV.proto) + '// থেকে খোলা হয়েছে।</b><br>এখানে Chrome Web Worker, ONNX/WASM ও ক্যাশ ঠিকমতো চালু করতে দেয় না, তাই "লেখা তৈরি" বন্ধ রাখা হয়েছে। ফাইলটি <b>https://</b> হোস্টিং (GitHub Pages, Cloudflare Pages বা Netlify) থেকে খুলুন।</div>');
+  }
+  if (!ENV.wasm || !ENV.worker) b.push('<div class="banner err">এই ব্রাউজারে WebAssembly বা Web Worker নেই। Chrome ব্যবহার করুন।</div>');
+  else if (!ENV.simd) b.push('<div class="banner warn">⚠️ এই ব্রাউজারে WASM SIMD নেই, তাই লেখা তৈরি অনেক ধীর হবে বা ব্যর্থ হতে পারে। Chrome আপডেট করুন।</div>');
+  $('envBanner').innerHTML = b.join('');
+}
+
+/* ---------- IndexedDB (resume) ---------- */
+const Store = {
+  db: null,
+  open() {
+    return new Promise((res, rej) => {
+      if (this.db) return res(this.db);
+      if (!('indexedDB' in window)) return rej(new Error('IndexedDB unavailable'));
+      const r = indexedDB.open('shorts-bn-tool', 1);
+      r.onupgradeneeded = () => { r.result.createObjectStore('sessions'); };
+      r.onsuccess = () => { this.db = r.result; res(this.db); };
+      r.onerror = () => rej(r.error || new Error('IndexedDB open failed'));
+      r.onblocked = () => rej(new Error('IndexedDB blocked'));
+    });
+  },
+  async get(k) {
+    const db = await this.open();
+    return new Promise((res, rej) => { const q = db.transaction('sessions').objectStore('sessions').get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+  },
+  async put(k, v) {
+    const db = await this.open();
+    return new Promise((res, rej) => { const tx = db.transaction('sessions', 'readwrite'); tx.objectStore('sessions').put(v, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
+  },
+  async del(k) {
+    const db = await this.open();
+    return new Promise((res, rej) => { const tx = db.transaction('sessions', 'readwrite'); tx.objectStore('sessions').delete(k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
+  }
+};
+
+/* ---------- progress rows ---------- */
+const ROWS = { audio: 'অডিও প্রসেস', engine: 'ONNX/WASM ইঞ্জিন ফাইল', model: 'Whisper মডেল', asr: 'লেখা তৈরি' };
+const rowState = {};
+const ICON = { idle: '⬜', run: '⏳', ok: '✅', warn: '⚠️', err: '❌' };
+let rowsTimer = 0;
+function setRow(name, patch) {
+  rowState[name] = Object.assign({ state: 'idle', text: '', pct: 0, ind: false }, rowState[name] || {}, patch);
+  if (!rowsTimer) rowsTimer = setTimeout(flushRows, 90);
+}
+function flushRows() {
+  rowsTimer = 0;
+  const host = $('pRows');
+  if (!host.children.length) {
+    host.innerHTML = Object.keys(ROWS).map(k =>
+      '<div class="prow" id="pr-' + k + '"><div class="ph"><span class="pi">⬜</span><b>' + ROWS[k] + '</b><span class="pt"></span></div><div class="bar"><i></i></div></div>').join('');
+  }
+  for (const k of Object.keys(ROWS)) {
+    const st = rowState[k] || { state: 'idle', text: '', pct: 0, ind: false };
+    const el = $('pr-' + k);
+    el.querySelector('.pi').textContent = ICON[st.state] || '⬜';
+    el.querySelector('.pt').textContent = st.text;
+    const bar = el.querySelector('.bar');
+    bar.className = 'bar' + (st.ind ? ' ind' : '') + (st.state === 'ok' ? ' ok' : '') + (st.state === 'err' ? ' err' : '');
+    bar.firstElementChild.style.width = st.ind ? '' : Math.max(0, Math.min(100, st.pct)) + '%';
+  }
+}
+function resetRows(keys) { for (const k of keys) rowState[k] = { state: 'idle', text: '', pct: 0, ind: false }; flushRows(); }
+
+/* ---------- Whisper engine (Web Worker wrapper) ---------- */
+const Engine = {
+  w: null, url: null, ready: false, modelId: null, loading: null, pending: new Map(), seq: 0,
+  lastEvt: 0, phase: 'idle', lastKind: '', watch: 0, _res: null, _rej: null, hooks: {},
+  touch() { this.lastEvt = performance.now(); },
+  _spawn() {
+    this._kill();
+    const src = document.getElementById('worker-src').textContent;
+    this.url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+    const w = new Worker(this.url);
+    w.onmessage = e => this._msg(e.data);
+    w.onerror = e => {
+      if (e && e.preventDefault) e.preventDefault();
+      const m = 'Worker error: ' + ((e && e.message) || '(no message)') + ((e && e.filename) ? ' @ ' + e.filename + ':' + e.lineno : '');
+      log('error', m); this._fail(new Error(m));
+    };
+    w.onmessageerror = () => this._fail(new Error('Worker message deserialization error'));
+    this.w = w;
+  },
+  _kill() {
+    if (this.w) { try { this.w.terminate(); } catch (e) { /* ignore */ } this.w = null; }
+    if (this.url) { try { URL.revokeObjectURL(this.url); } catch (e) { /* ignore */ } this.url = null; }
+    clearInterval(this.watch); this.watch = 0;
+    this.ready = false; this.loading = null;
+  },
+  _rejectAll(err) {
+    if (this._rej) { const r = this._rej; this._rej = this._res = null; r(err); }
+    const list = Array.from(this.pending.values()); this.pending.clear();
+    list.forEach(p => p.rej(err));
+  },
+  _fail(err) { this._kill(); this._rejectAll(err); },
+  terminate() {   // user stop / restart
+    this._kill();
+    this._rejectAll(Object.assign(new Error('stopped'), { stopped: true }));
+  },
+  _msg(m) {
+    this.touch();
+    switch (m.type) {
+      case 'log': log(m.level || 'info', '[worker] ' + m.msg); break;
+      case 'phase': this.phase = m.name; if (this.hooks.onPhase) this.hooks.onPhase(m.name); break;
+      case 'engine': if (this.hooks.onEngine) this.hooks.onEngine(m); break;
+      case 'dl': {
+        const p = m.p || {};
+        this.lastKind = p.status;
+        if (this.hooks.onDl) this.hooks.onDl(p);
+        break;
+      }
+      case 'ready':
+        this.ready = true;
+        if (this._res) { const r = this._res; this._res = this._rej = null; r(); }
+        break;
+      case 'result': {
+        const p = this.pending.get(m.id);
+        if (p) { this.pending.delete(m.id); p.res(m); }
+        break;
+      }
+      case 'error': {
+        const err = new Error(m.message || 'unknown worker error');
+        err.stack = m.stack || err.stack;
+        if (m.id != null && this.pending.has(m.id)) { const p = this.pending.get(m.id); this.pending.delete(m.id); p.rej(err); }
+        else this._fail(err);
+        break;
+      }
+      default: break;
+    }
+  },
+  load(modelId) {
+    if (this.ready && this.modelId === modelId) return Promise.resolve();
+    if (this.loading && this.modelId === modelId) return this.loading;
+    this._spawn();
+    this.modelId = modelId;
+    this.phase = 'import'; this.lastKind = '';
+    this.touch();
+    const p = new Promise((res, rej) => { this._res = res; this._rej = rej; });
+    this.loading = p;
+    this.watch = setInterval(() => {
+      const idle = performance.now() - this.lastEvt;
+      const downloading = this.lastKind === 'initiate' || this.lastKind === 'download' || this.lastKind === 'progress';
+      const limit = (this.phase === 'import' || this.phase === 'engine' || downloading) ? 60000 : 180000;   // ONNX session creation may be slow
+      if (idle > limit) {
+        this._fail(new Error('Engine init timeout: no activity for ' + Math.round(idle / 1000) + 's in phase "' + this.phase +
+          '" (limit ' + limit / 1000 + 's). The runtime/model did not start.'));
+      }
+    }, 1000);
+    p.then(() => { clearInterval(this.watch); this.watch = 0; }, () => { /* handled by caller */ });
+    this.w.postMessage({ type: 'load', modelId });
+    return p;
+  },
+  transcribe(f32, timeoutMs) {
+    return new Promise((res, rej) => {
+      if (!this.w || !this.ready) return rej(new Error('Engine not ready'));
+      const id = ++this.seq;
+      const timer = setTimeout(() => this._fail(new Error('Chunk transcription timeout after ' + Math.round(timeoutMs / 1000) + 's')), timeoutMs);
+      this.pending.set(id, { res: v => { clearTimeout(timer); res(v); }, rej: e => { clearTimeout(timer); rej(e); } });
+      this.w.postMessage({ type: 'transcribe', id, buffer: f32.buffer }, [f32.buffer]);   // transfer, no copy
+    });
+  }
+};
+
+/* ---------- audio decode -> 16 kHz mono Float32 ---------- */
+async function decodeTo16kMono(file, step) {
+  step('ফাইল পড়া হচ্ছে…', 8);
+  let ab = await file.arrayBuffer();
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) throw new Error('Web Audio API is not available in this browser');
+  let ctx;
+  try { ctx = new AC({ sampleRate: SR }); } catch (e) { ctx = new AC(); }
+  step('ডিকোড হচ্ছে (16 kHz mono)…', 25);
+  let buf;
+  try {
+    buf = await ctx.decodeAudioData(ab);
+  } catch (e) {
+    try { ctx.close(); } catch (_) { /* ignore */ }
+    throw new Error('Audio decode failed (' + (file.type || 'unknown type') + '): ' + (msgOf(e) || 'unsupported or corrupt file'));
+  }
+  ab = null;
+  let mono;
+  if (buf.sampleRate === SR) {
+    const ch = buf.numberOfChannels, n = buf.length;
+    mono = new Float32Array(n);
+    for (let c = 0; c < ch; c++) { const d = buf.getChannelData(c); for (let i = 0; i < n; i++) mono[i] += d[i]; }
+    if (ch > 1) for (let i = 0; i < n; i++) mono[i] /= ch;
+  } else {
+    step('16 kHz-এ রিস্যাম্পল হচ্ছে…', 45);
+    const off = new OfflineAudioContext(1, Math.max(1, Math.ceil(buf.duration * SR)), SR);
+    const src = off.createBufferSource(); src.buffer = buf; src.connect(off.destination); src.start();
+    const r = await off.startRendering();
+    mono = r.getChannelData(0).slice();
+  }
+  buf = null;                                   // release the decoded AudioBuffer
+  try { ctx.close(); } catch (_) { /* ignore */ }
+  step('ডিকোড শেষ', 60);
+  return mono;
+}
+
+/* ==================== SESSION (IndexedDB resume) ==================== */
+function sessionKey() {
+  return S.file ? [S.file.name, S.file.size, S.file.lastModified, MODELS[S.modelKey].id].join('|') : '';
+}
+function snapshot() {
+  return {
+    v: 1, savedAt: Date.now(), maxChars: S.maxChars,
+    chunks: S.chunks.map(c => ({
+      i: c.i, ownStart: c.ownStart, ownEnd: c.ownEnd, silent: !!c.silent,
+      status: c.status === 'done' ? 'done' : 'pending', segs: c.status === 'done' ? c.segs : []
+    })),
+    lines: S.lines.map(l => ({ s: l.s, e: l.e, t: l.t, src: l.src }))
+  };
+}
+function scheduleSave() { clearTimeout(S.saveTimer); S.saveTimer = setTimeout(saveNow, 700); }
+async function saveNow() {
+  clearTimeout(S.saveTimer); S.saveTimer = 0;
+  if (!S.file || !S.chunks.length) return;
+  try { await Store.put(sessionKey(), snapshot()); } catch (e) { log('warn', 'autosave failed: ' + msgOf(e)); }
+}
+async function restoreSession() {
+  if (!S.file || !S.chunks.length) return false;
+  try {
+    const saved = await Store.get(sessionKey());
+    if (!saved || saved.v !== 1) return false;
+    const same = saved.chunks && saved.chunks.length === S.chunks.length &&
+      saved.chunks.every((c, i) => Math.abs(c.ownStart - S.chunks[i].ownStart) < 0.02 && Math.abs(c.ownEnd - S.chunks[i].ownEnd) < 0.02);
+    if (!same) { log('warn', 'saved session ignored (chunk plan differs)'); return false; }
+    let done = 0;
+    saved.chunks.forEach((c, i) => { if (c.status === 'done') { S.chunks[i].status = 'done'; S.chunks[i].segs = c.segs || []; S.chunks[i].silent = !!c.silent; done++; } });
+    S.lines = (saved.lines || []).map(l => newLine(l.s, l.e, l.t, l.src));
+    if (saved.maxChars) { S.maxChars = saved.maxChars; $('maxChars').value = S.maxChars; }
+    log('info', 'resume: restored ' + done + '/' + S.chunks.length + ' chunks, ' + S.lines.length + ' lines');
+    if (done || S.lines.length) toast('আগের কাজ ফিরে এসেছে: ' + done + '/' + S.chunks.length + ' অংশ, ' + S.lines.length + ' লাইন');
+    return done > 0 || S.lines.length > 0;
+  } catch (e) { log('warn', 'resume load failed: ' + msgOf(e)); return false; }
+}
+function resetChunkStates() {
+  S.chunks.forEach(c => { c.status = 'pending'; c.segs = []; c.err = null; });
+  S.lines = []; S.history = [];
+}
+
+/* ==================== LINES ==================== */
+function newLine(s, e, t, src) { return { id: ++S.idSeq, s, e, t, src: src == null ? null : src }; }
+function sortLines() { S.lines.sort((a, b) => a.s - b.s || a.e - b.e); }
+function commitChunk(ch) {
+  const fresh = linesFromSegs(ch.segs, S.maxChars).map(l => newLine(l.s, l.e, l.t, ch.i));
+  S.lines = S.lines.filter(l => l.src !== ch.i).concat(fresh);
+  sortLines();
+  afterLinesChanged(true);
+}
+function afterLinesChanged(deferRender) {
+  S.waveDirty = true;
+  renderLines(!deferRender);
+  scheduleSave(); updateUI(); requestRedraw();
+}
+function pushHistory() { S.history.push(JSON.stringify(S.lines)); if (S.history.length > 30) S.history.shift(); updateUI(); }
+function undo() {
+  const j = S.history.pop(); if (!j) return;
+  S.lines = JSON.parse(j); renderLines(true); S.waveDirty = true; scheduleSave(); updateUI(); requestRedraw();
+}
+
+function renderLines(force) {
+  const box = $('lines');
+  const ae = document.activeElement;
+  if (!force && ae && box.contains(ae) && /^(TEXTAREA|INPUT)$/.test(ae.tagName)) { S.pendingRender = true; return; }
+  S.pendingRender = false;
+  const top = box.scrollTop;
+  $('lineCount').textContent = S.lines.length ? '(' + S.lines.length + ' লাইন)' : '';
+  if (!S.lines.length) {
+    box.innerHTML = '<p class="muted empty">এখনো কোনো লাইন নেই। ভয়েস আপলোড করে "লেখা তৈরি শুরু" চাপুন, লাইনগুলো এখানে নিজে থেকেই আসবে।</p>';
+    S.activeIdx = -1; return;
+  }
+  const frag = document.createDocumentFragment();
+  S.lines.forEach((l, i) => {
+    const d = document.createElement('div');
+    d.className = 'line'; d.dataset.id = l.id;
+    d.innerHTML =
+      '<div class="lh"><span class="num">' + (i + 1) + '</span>' +
+      '<input type="text" class="tm mono" data-k="s" inputmode="decimal" aria-label="শুরু" value="' + fmtTime(l.s) + '">' +
+      '<span class="muted">→</span>' +
+      '<input type="text" class="tm mono" data-k="e" inputmode="decimal" aria-label="শেষ" value="' + fmtTime(l.e) + '"></div>' +
+      '<div class="lrow"><button class="btn sm" data-act="setS">⏱ শুরু = এখন</button><button class="btn sm" data-act="setE">⏱ শেষ = এখন</button></div>' +
+      '<textarea class="lt" rows="2" aria-label="লেখা"></textarea>' +
+      '<div class="lrow"><button class="btn sm" data-act="play">▶ এখান থেকে</button><button class="btn sm" data-act="split">✂ কার্সারে ভাগ</button>' +
+      '<button class="btn sm" data-act="merge">⤵ পরেরটার সাথে জোড়া</button><button class="btn sm danger" data-act="del">🗑 মুছুন</button></div>';
+    d.querySelector('textarea').value = l.t;
+    frag.appendChild(d);
+  });
+  box.innerHTML = ''; box.appendChild(frag); box.scrollTop = top;
+  S.activeIdx = -1; updateActive(S.audioEl ? S.audioEl.currentTime : 0);
+}
+
+function lineById(id) { return S.lines.find(l => l.id === id); }
+
+function onLinesClick(e) {
+  const btn = e.target.closest('button[data-act]'); if (!btn) return;
+  const row = btn.closest('.line'); const id = +row.dataset.id;
+  const idx = S.lines.findIndex(l => l.id === id); if (idx < 0) return;
+  const l = S.lines[idx];
+  const now = S.audioEl.currentTime || 0;
+  switch (btn.dataset.act) {
+    case 'setS':
+      if (now >= l.e) { toast('শুরু, শেষের আগে হতে হবে'); return; }
+      pushHistory(); l.s = round2(now); S.lines = S.lines.slice(); sortLines(); afterLinesChanged(false); break;
+    case 'setE':
+      if (now <= l.s) { toast('শেষ, শুরুর পরে হতে হবে'); return; }
+      pushHistory(); l.e = round2(now); afterLinesChanged(false); break;
+    case 'play':
+      seekTo(l.s); playAudio(); break;
+    case 'split': {
+      const ta = row.querySelector('textarea');
+      const txt = ta.value, pos = ta.selectionStart;
+      const a = txt.slice(0, pos).trim(), b = txt.slice(pos).trim();
+      if (!a || !b) { toast('কার্সার লেখার মাঝখানে রাখুন, তারপর ভাগ চাপুন'); return; }
+      pushHistory();
+      const la = glen(a), lb = glen(b), mid = round2(l.s + (l.e - l.s) * la / (la + lb));
+      l.t = a; const oldE = l.e; l.e = mid;
+      S.lines.splice(idx + 1, 0, newLine(mid, oldE, b, l.src));
+      afterLinesChanged(false); break;
+    }
+    case 'merge': {
+      const nx = S.lines[idx + 1];
+      if (!nx) { toast('পরে আর কোনো লাইন নেই'); return; }
+      pushHistory(); l.t = (l.t.trim() + ' ' + nx.t.trim()).trim(); l.e = Math.max(l.e, nx.e);
+      S.lines.splice(idx + 1, 1); afterLinesChanged(false); break;
+    }
+    case 'del':
+      pushHistory(); S.lines.splice(idx, 1); afterLinesChanged(false); toast('লাইন মুছেছে, চাইলে "আনডু" চাপুন'); break;
+    default: break;
+  }
+}
+function onLinesInput(e) {
+  if (!e.target.classList.contains('lt')) return;
+  const l = lineById(+e.target.closest('.line').dataset.id); if (!l) return;
+  l.t = e.target.value;               // text edits never touch timing
+  scheduleSave(); requestRedraw();
+}
+function onLinesChange(e) {
+  if (!e.target.classList.contains('tm')) return;
+  const row = e.target.closest('.line'); const l = lineById(+row.dataset.id); if (!l) return;
+  const k = e.target.dataset.k; const v = parseTime(e.target.value);
+  if (!isFinite(v) || v < 0) { e.target.value = fmtTime(l[k]); toast('সময় লিখুন mm:ss.cc আকারে, যেমন 00:12.50'); return; }
+  const ns = k === 's' ? v : l.s, ne = k === 'e' ? v : l.e;
+  if (ne <= ns) { e.target.value = fmtTime(l[k]); toast('শেষ সময় শুরুর পরে হতে হবে'); return; }
+  pushHistory(); l.s = round2(ns); l.e = round2(ne);
+  sortLines(); afterLinesChanged(false);
+}
+
+function addLineAtPlayhead() {
+  const t = round2(S.audioEl.currentTime || 0);
+  const end = Math.min(t + 2, S.duration || t + 2);
+  pushHistory();
+  const nl = newLine(t, round2(Math.max(end, t + 0.5)), '', null);
+  S.lines.push(nl); sortLines(); afterLinesChanged(false);
+  const row = $('lines').querySelector('.line[data-id="' + nl.id + '"]');
+  if (row) { $('lines').scrollTo({ top: row.offsetTop - 8 }); row.querySelector('textarea').focus(); }
+}
+
+function resplitAll() {
+  if (!S.chunks.some(c => c.status === 'done')) { toast('আগে লেখা তৈরি করুন'); return; }
+  if (!confirm('সব লাইন নতুন করে ভাগ হবে। আপনার হাতে করা এডিট মুছে যাবে। এগিয়ে যাবেন?')) return;
+  S.maxChars = Math.max(8, Math.min(80, Number($('maxChars').value) || 28));
+  pushHistory();
+  S.lines = [];
+  S.chunks.filter(c => c.status === 'done').forEach(c => { linesFromSegs(c.segs, S.maxChars).forEach(l => S.lines.push(newLine(l.s, l.e, l.t, c.i))); });
+  sortLines(); afterLinesChanged(false);
+}
+
+function downloadBlob(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 5000);
+}
+function baseName() { return S.file ? S.file.name.replace(/\.[^.]+$/, '') : 'subtitles'; }
+function downloadSrt() {
+  const ls = S.lines.filter(l => l.t.trim());
+  if (!ls.length) { toast('ডাউনলোড করার মতো লাইন নেই'); return; }
+  downloadBlob(new Blob([buildSrt(ls)], { type: 'application/x-subrip;charset=utf-8' }), baseName() + '.srt');
+}
+
+/* ==================== PLAYER ==================== */
+function dur() { return S.duration || 0; }
+function seekTo(t) {
+  t = Math.max(0, Math.min(t, dur() || t));
+  try { S.audioEl.currentTime = t; } catch (e) { /* not ready */ }
+  requestRedraw();
+}
+function ensureAudioGraph() {
+  if (S.ctx) { if (S.ctx.state === 'suspended') S.ctx.resume(); return; }
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    S.ctx = new AC();
+    S.srcNode = S.ctx.createMediaElementSource(S.audioEl);
+    S.gain = S.ctx.createGain(); S.gain.gain.value = Number($('vol').value);
+    S.streamDest = S.ctx.createMediaStreamDestination();
+    S.srcNode.connect(S.gain); S.gain.connect(S.ctx.destination);   // speakers (volume)
+    S.srcNode.connect(S.streamDest);                                // recording tap (before volume)
+    S.ctx.resume();
+  } catch (e) { log('warn', 'audio graph unavailable: ' + msgOf(e)); S.ctx = null; S.gain = null; S.streamDest = null; }
+}
+async function playAudio() {
+  if (!S.audio) return;
+  ensureAudioGraph();
+  try { await S.audioEl.play(); } catch (e) { log('warn', 'play() failed: ' + msgOf(e)); toast('প্লে করা যায়নি'); }
+}
+function pauseAudio() { try { S.audioEl.pause(); } catch (e) { /* ignore */ } }
+function togglePlay() { if (!S.audio) return; if (S.audioEl.paused) playAudio(); else pauseAudio(); }
+function stepLine(dir) {
+  const t = S.audioEl.currentTime || 0;
+  if (dir < 0) { let tgt = 0; for (const l of S.lines) if (l.s < t - 0.4) tgt = l.s; seekTo(tgt); }
+  else { const nx = S.lines.find(l => l.s > t + 0.05); if (nx) seekTo(nx.s); }
+}
+function setVolume(v) { if (S.gain) S.gain.gain.value = v; else S.audioEl.volume = v; }
+
+function loop() { S.raf = 0; frame(); if (S.playing || S.exporting) S.raf = requestAnimationFrame(loop); }
+function requestRedraw() { if (!S.raf) S.raf = requestAnimationFrame(loop); }
+function frame() {
+  const t = S.audioEl ? (S.audioEl.currentTime || 0) : 0;
+  drawPreview(t); drawWave(t); updateTimeUI(t); updateActive(t);
+}
+function updateTimeUI(t) {
+  $('timeTxt').textContent = fmtTime(t) + ' / ' + fmtTime(dur());
+  const sk = $('seek');
+  if (document.activeElement !== sk && dur()) sk.value = String(Math.round(t / dur() * 1000));
+}
+function activeIndexAt(t) {
+  let idx = -1;
+  for (let i = 0; i < S.lines.length; i++) { const l = S.lines[i]; if (l.s <= t && t < l.e) idx = i; }
+  return idx;
+}
+function updateActive(t) {
+  const idx = activeIndexAt(t);
+  if (idx === S.activeIdx) return;
+  const box = $('lines');
+  const prev = box.querySelector('.line.active'); if (prev) prev.classList.remove('active');
+  S.activeIdx = idx;
+  if (idx < 0) return;
+  const row = box.querySelector('.line[data-id="' + S.lines[idx].id + '"]');
+  if (!row) return;
+  row.classList.add('active');
+  if (S.playing || S.exporting) box.scrollTo({ top: Math.max(0, row.offsetTop - (box.clientHeight - row.offsetHeight) / 2), behavior: 'smooth' });
+}
+
+/* ==================== WAVEFORM ==================== */
+function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function drawWave(t) {
+  const cv = $('wave');
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const w = Math.max(1, Math.round(cv.clientWidth * dpr)), h = Math.max(1, Math.round(cv.clientHeight * dpr));
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; S.waveDirty = true; }
+  const g = cv.getContext('2d');
+  if (S.waveDirty || !S.waveCache) {
+    const off = S.waveCache || (S.waveCache = document.createElement('canvas'));
+    off.width = w; off.height = h;
+    const c = off.getContext('2d');
+    c.fillStyle = cssVar('--field') || '#eee'; c.fillRect(0, 0, w, h);
+    const D = dur();
+    if (D && S.peaks) {
+      c.fillStyle = cssVar('--accent'); c.globalAlpha = 0.16;
+      for (const l of S.lines) { c.fillRect(l.s / D * w, 0, Math.max(1, (l.e - l.s) / D * w), h); }
+      c.globalAlpha = 0.75;
+      for (const l of S.lines) { c.fillRect(l.s / D * w, 0, Math.max(1, dpr), h); c.fillRect(l.e / D * w - dpr, 0, Math.max(1, dpr), h); }
+      c.globalAlpha = 1;
+      c.fillStyle = cssVar('--muted');
+      const n = S.peaks.length, mid = h / 2;
+      for (let x = 0; x < w; x++) {
+        const a = S.peaks[Math.min(n - 1, Math.floor(x / w * n))] * (h * 0.46);
+        c.fillRect(x, mid - a, 1, Math.max(1, a * 2));
+      }
+    } else {
+      c.fillStyle = cssVar('--muted'); c.font = Math.round(14 * dpr) + 'px "Hind Siliguri", sans-serif'; c.textAlign = 'center';
+      c.fillText('ভয়েস আপলোড করলে ওয়েভফর্ম দেখাবে', w / 2, h / 2);
+    }
+    S.waveDirty = false;
+  }
+  g.drawImage(S.waveCache, 0, 0);
+  const D = dur();
+  if (D) {
+    const ai = S.activeIdx >= 0 ? S.lines[S.activeIdx] : null;
+    if (ai) { g.fillStyle = cssVar('--haldi'); g.globalAlpha = 0.28; g.fillRect(ai.s / D * w, 0, Math.max(1, (ai.e - ai.s) / D * w), h); g.globalAlpha = 1; }
+    g.fillStyle = cssVar('--haldi'); g.fillRect(Math.max(0, Math.min(w - 3 * dpr, t / D * w - 1.5 * dpr)), 0, 3 * dpr, h);
+  }
+}
+function waveSeek(e) {
+  const r = $('wave').getBoundingClientRect();
+  if (!dur()) return;
+  seekTo((e.clientX - r.left) / r.width * dur());
+}
+
+/* ==================== STYLE + CANVAS DRAWING ==================== */
+const STYLE_CTL = [
+  { k: 'font', type: 'select', label: 'ফন্ট', opts: [['Hind Siliguri', 'Hind Siliguri'], ['Noto Sans Bengali', 'Noto Sans Bengali'], ['Baloo Da 2', 'Baloo Da 2'], ['Tiro Bangla', 'Tiro Bangla'], ['system', 'সিস্টেম ফন্ট']] },
+  { k: 'size', type: 'range', label: 'সাইজ', min: 24, max: 120, step: 1 },
+  { k: 'bold', type: 'check', label: 'বোল্ড' },
+  { k: 'color', type: 'color', label: 'লেখার রং' },
+  { k: 'stroke', type: 'color', label: 'স্ট্রোকের রং' },
+  { k: 'strokeW', type: 'range', label: 'স্ট্রোক পুরুত্ব', min: 0, max: 20, step: 1 },
+  { k: 'shadow', type: 'check', label: 'শ্যাডো' },
+  { k: 'box', type: 'check', label: 'ব্যাকগ্রাউন্ড বক্স' },
+  { k: 'boxColor', type: 'color', label: 'বক্সের রং' },
+  { k: 'boxOpacity', type: 'range', label: 'বক্স অপাসিটি %', min: 0, max: 100, step: 1 },
+  { k: 'pos', type: 'range', label: 'উপর-নিচ অবস্থান %', min: 5, max: 95, step: 1 },
+  { k: 'width', type: 'range', label: 'লেখার প্রস্থ %', min: 40, max: 100, step: 1 },
+  { k: 'align', type: 'select', label: 'অ্যালাইনমেন্ট', opts: [['center', 'মাঝে'], ['left', 'বামে'], ['right', 'ডানে']] },
+  { k: 'lineSp', type: 'range', label: 'লাইন স্পেসিং', min: 1, max: 2, step: 0.05 },
+  { k: 'bg', type: 'color', label: 'ব্যাকগ্রাউন্ড রং' }
+];
+function buildStyleUI() {
+  const host = $('styleGrid'); host.innerHTML = '';
+  for (const c of STYLE_CTL) {
+    const id = 'st_' + c.k;
+    const row = document.createElement('div'); row.className = 'sctl' + (c.type === 'range' ? '' : ' two');
+    let h = '<label for="' + id + '">' + c.label + '</label>';
+    if (c.type === 'select') h += '<select id="' + id + '">' + c.opts.map(o => '<option value="' + esc(o[0]) + '">' + esc(o[1]) + '</option>').join('') + '</select>';
+    else if (c.type === 'range') h += '<input id="' + id + '" type="range" min="' + c.min + '" max="' + c.max + '" step="' + c.step + '"><output id="' + id + '_o"></output>';
+    else if (c.type === 'check') h += '<div><input id="' + id + '" type="checkbox"></div>';
+    else h += '<div><input id="' + id + '" type="color"></div>';
+    row.innerHTML = h; host.appendChild(row);
+    $(id).addEventListener('input', () => {
+      const el = $(id);
+      S.style[c.k] = c.type === 'check' ? el.checked : c.type === 'range' ? Number(el.value) : el.value;
+      if (c.type === 'range') $(id + '_o').textContent = el.value;
+      LS.set('style', S.style);
+      if (c.k === 'font' || c.k === 'bold') loadFont();
+      requestRedraw();
+    });
+  }
+  syncStyleUI();
+}
+function syncStyleUI() {
+  for (const c of STYLE_CTL) {
+    const el = $('st_' + c.k); const v = S.style[c.k];
+    if (c.type === 'check') el.checked = !!v; else el.value = v;
+    if (c.type === 'range') $('st_' + c.k + '_o').textContent = String(v);
+  }
+}
+async function loadFont() {
+  const f = S.style.font;
+  if (f === 'system' || !document.fonts || !document.fonts.load) return;
+  try { await document.fonts.load((S.style.bold ? '700 ' : '400 ') + '40px "' + f + '"', 'অআকখগ'); } catch (e) { log('warn', 'font load failed: ' + f); }
+  requestRedraw();
+}
+function fontStack(f) {
+  return f === 'system' ? 'system-ui, "Noto Sans Bengali", sans-serif' : '"' + f + '", "Hind Siliguri", "Noto Sans Bengali", system-ui, sans-serif';
+}
+function hexToRgba(hex, a) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '#000000') || [0, '00', '00', '00'];
+  return 'rgba(' + parseInt(m[1], 16) + ',' + parseInt(m[2], 16) + ',' + parseInt(m[3], 16) + ',' + a + ')';
+}
+function roundRect(g, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+}
+function wrapLines(g, text, maxW) {
+  const out = [];
+  for (const para of String(text).split('\n')) {
+    let cur = '';
+    for (const w of para.split(/\s+/).filter(Boolean)) {
+      const test = cur ? cur + ' ' + w : w;
+      if (cur && g.measureText(test).width > maxW) { out.push(cur); cur = w; } else cur = test;
+    }
+    if (cur) out.push(cur);
+  }
+  return out;
+}
+function ensureBg(W, H) {
+  const key = W + 'x' + H + '|' + S.style.bg + '|' + (S.imgUrl || '');
+  if (S.bg && S.bgKey === key) return;
+  const c = S.bg || (S.bg = document.createElement('canvas'));
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.fillStyle = S.style.bg; g.fillRect(0, 0, W, H);
+  if (S.img && S.img.naturalWidth) {
+    const iw = S.img.naturalWidth, ih = S.img.naturalHeight, sc = Math.max(W / iw, H / ih);   // cover fit
+    g.drawImage(S.img, (W - iw * sc) / 2, (H - ih * sc) / 2, iw * sc, ih * sc);
+  }
+  S.bgKey = key;
+}
+function subtitleAt(t, strict) {
+  let hit = null;
+  for (const l of S.lines) if (l.s <= t && t < l.e && l.t.trim()) hit = l;   // empty placeholder lines never hide real ones
+  if (hit || strict || S.playing || !S.lines.length || !$('cardStyle').open) return hit;
+  let prev = null; for (const l of S.lines) if (l.s <= t) prev = l;    // style-tuning aid while paused
+  return prev || S.lines[0];
+}
+function drawSubtitle(g, W, H, text) {
+  const st = S.style, k = W / 1080;
+  const fs = st.size * k;
+  g.font = (st.bold ? '700 ' : '400 ') + fs + 'px ' + fontStack(st.font);
+  g.textBaseline = 'middle'; g.lineJoin = 'round'; g.miterLimit = 2;
+  const areaW = W * st.width / 100, padX = fs * 0.4, padY = fs * 0.25;
+  const lines = wrapLines(g, text, areaW - 2 * padX);
+  if (!lines.length) return;
+  const lh = fs * st.lineSp, blockH = lh * lines.length;
+  const cy = H * st.pos / 100, top = cy - blockH / 2;
+  const areaL = (W - areaW) / 2 + padX, areaR = (W + areaW) / 2 - padX;
+  let maxLW = 0; for (const s of lines) maxLW = Math.max(maxLW, g.measureText(s).width);
+  const align = st.align;
+  g.textAlign = align;
+  const tx = align === 'left' ? areaL : align === 'right' ? areaR : W / 2;
+  if (st.box && st.boxOpacity > 0) {
+    const bw = maxLW + 2 * padX, bh = blockH + 2 * padY;
+    const bx = align === 'left' ? areaL - padX : align === 'right' ? areaR + padX - bw : W / 2 - bw / 2;
+    g.fillStyle = hexToRgba(st.boxColor, st.boxOpacity / 100);
+    roundRect(g, bx, top - padY, bw, bh, fs * 0.3); g.fill();
+  }
+  lines.forEach((s, i) => {
+    const y = top + lh * (i + 0.5);
+    if (st.strokeW > 0) {
+      g.lineWidth = st.strokeW * k * 2; g.strokeStyle = st.stroke;
+      if (st.shadow) { g.shadowColor = 'rgba(0,0,0,0.65)'; g.shadowBlur = 10 * k; g.shadowOffsetY = 4 * k; }
+      g.strokeText(s, tx, y);
+      g.shadowColor = 'transparent'; g.shadowBlur = 0; g.shadowOffsetY = 0;
+    } else if (st.shadow) { g.shadowColor = 'rgba(0,0,0,0.65)'; g.shadowBlur = 10 * k; g.shadowOffsetY = 4 * k; }
+    g.fillStyle = st.color; g.fillText(s, tx, y);
+    g.shadowColor = 'transparent'; g.shadowBlur = 0; g.shadowOffsetY = 0;
+  });
+}
+function drawFrame(g, W, H, t, strict) {
+  ensureBg(W, H);
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.shadowColor = 'transparent'; g.shadowBlur = 0;
+  g.drawImage(S.bg, 0, 0);
+  if (!S.audio && !S.img && !strict) {
+    g.fillStyle = 'rgba(255,255,255,0.55)'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = Math.round(W * 0.048) + 'px "Hind Siliguri", sans-serif';
+    g.fillText('ছবি ও ভয়েস আপলোড করুন', W / 2, H / 2);
+  }
+  const l = subtitleAt(t, strict);
+  if (l && l.t.trim()) drawSubtitle(g, W, H, l.t);
+}
+function drawPreview(t) {
+  const cv = $('preview');
+  drawFrame(cv.getContext('2d'), cv.width, cv.height, t, S.exporting);
+}
+
+/* ==================== ERRORS ==================== */
+function explainError(msg) {
+  const m = String(msg).toLowerCase(), r = [];
+  if (ENV.blocked) r.push('লোকাল ফাইলের সিকিউরিটি বাধা: https:// হোস্টিং থেকে খুলুন');
+  if (/timeout|no activity/.test(m)) r.push('ইঞ্জিন বা মডেল ডাউনলোড আটকে গেছে: ইন্টারনেট ধীর, অথবা cdn.jsdelivr.net / huggingface.co ব্লক (VPN, অ্যাডব্লকার, অফিস/স্কুল নেটওয়ার্ক)');
+  if (/failed to fetch|networkerror|network|load failed|http \d{3}|cors|import/.test(m)) r.push('মডেল বা ইঞ্জিন ফাইল ডাউনলোড ব্যর্থ: ইন্টারনেট বা cdn.jsdelivr.net / huggingface.co এ প্রবেশ আছে কি দেখুন');
+  if (/memory|alloc|oom|out of|rangeerror|array buffer|crash/.test(m)) r.push('মেমরি সীমা: Base বা Tiny মডেল নিন, অন্য ট্যাব ও অ্যাপ বন্ধ করুন');
+  if (/wasm|webassembly|onnx|\bort\b|instantiate|compile/.test(m)) r.push('WASM / ONNX চালু হয়নি (init failed)');
+  if (!ENV.simd) r.push('এই ব্রাউজারে WASM SIMD নেই: Chrome আপডেট করুন');
+  if (/decode|unsupported|encoding|corrupt/.test(m)) r.push('অডিও ফরম্যাট সাপোর্ট করছে না: MP3, WAV বা M4A দিন');
+  if (!r.length) r.push('অজানা ত্রুটি: নিচের Debug log কপি করে পাঠান');
+  return r;
+}
+function showErr(title, e) {
+  const msg = msgOf(e);
+  let detail = (e && e.stack) ? String(e.stack) : msg;
+  if (detail.indexOf(msg) < 0) detail = msg + '\n' + detail;
+  const box = $('errBox'); box.hidden = false;
+  box.innerHTML = '<b>❌ ' + esc(title) + '</b><div style="margin-top:8px"><b>সম্ভাব্য কারণ:</b><ul>' +
+    explainError(msg).map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div><div style="margin-top:8px"><b>Error:</b></div><pre>' + esc(detail) + '</pre>';
+  box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+function hideErr() { const b = $('errBox'); b.hidden = true; b.innerHTML = ''; }
+
+/* ==================== UI STATE ==================== */
+function updateUI() {
+  const has = !!S.audio;
+  const done = S.chunks.filter(c => c.status === 'done').length, N = S.chunks.length;
+  const b = $('btnStart');
+  b.disabled = !has || S.running || ENV.blocked || S.exporting;
+  b.textContent = (done > 0 && done < N) ? '▶ চালিয়ে যান' : '▶ লেখা তৈরি শুরু';
+  $('btnStop').disabled = !S.running;
+  $('btnReset').disabled = !has || S.running || S.exporting;
+  $('btnExport').disabled = !has || S.exporting;
+  $('btnExpCancel').hidden = !S.exporting;
+  $('btnUndo').disabled = !S.history.length;
+  $('model').disabled = S.running;
+  $('chipLegend').hidden = !N;
+}
+function renderChips() {
+  const L = { pending: 'অপেক্ষায়', running: 'চলছে', done: 'শেষ', failed: 'ব্যর্থ' };
+  $('chips').innerHTML = S.chunks.map(c =>
+    '<button class="chip ' + c.status + (c.silent ? ' silent' : '') + '" data-i="' + c.i + '" aria-label="অংশ ' + (c.i + 1) + ': ' + L[c.status] +
+    (c.silent ? ' (নীরব)' : '') + '" title="' + esc(c.err || '') + '">' + (c.i + 1) + (c.status === 'failed' ? ' ⟳' : '') + '</button>').join('');
+}
+function renderTags() {
+  const host = $('metaTags');
+  if (!S.audio) { host.hidden = true; return; }
+  const m = MODELS[S.modelKey];
+  host.hidden = false;
+  host.innerHTML =
+    (S.voice ? '<span class="tag ok">✅ Voice detected</span>' : '<span class="tag bad">⚠️ কথা পাওয়া যায়নি (প্রায় নীরব)</span>') +
+    '<span class="tag">⏱ ' + fmtTime(S.duration) + '</span>' +
+    '<span class="tag">🤖 ' + esc(m.name) + '</span>' +
+    '<span class="tag">🌐 ভাষা: বাংলা (bn), ট্রান্সক্রাইব</span>' +
+    '<span class="tag">🧩 ' + S.chunks.length + 'টি অংশ</span>';
+}
+function updateAsr() {
+  const N = S.chunks.length;
+  if (!N) { setRow('asr', { state: 'idle', text: '', pct: 0, ind: false }); return; }
+  const done = S.chunks.filter(c => c.status === 'done'), failed = S.chunks.filter(c => c.status === 'failed').length;
+  const running = S.chunks.find(c => c.status === 'running');
+  const total = S.chunks.reduce((a, c) => a + (c.ownEnd - c.ownStart), 0) || 1;
+  const doneSec = done.reduce((a, c) => a + (c.ownEnd - c.ownStart), 0);
+  const pct = doneSec / total * 100;
+  const cur = running ? running.i + 1 : Math.min(done.length + 1, N);
+  let state = 'idle';
+  if (running) state = 'run'; else if (done.length === N) state = 'ok'; else if (failed) state = 'warn';
+  setRow('asr', {
+    state, pct, ind: !!running && done.length === 0,
+    text: (running ? 'চাঙ্ক ' + cur + ' / ' + N + ' চলছে' : (done.length === N ? 'সব ' + N + 'টি অংশ শেষ' : 'চাঙ্ক ' + done.length + ' / ' + N + ' শেষ')) +
+      ' · ' + pct.toFixed(0) + '%' + (failed ? ' · ব্যর্থ ' + failed : '')
+  });
+}
+function updateSummary() {
+  if (!S.running) return;
+  const el = (performance.now() - S.t0) / 1000;
+  let eta = 'গণনা হচ্ছে…';
+  if (S.stats.sec > 0) {
+    const rate = S.stats.ms / 1000 / S.stats.sec;
+    const rem = S.chunks.filter(c => c.status !== 'done' && c.status !== 'failed').reduce((a, c) => a + (c.ownEnd - c.ownStart), 0);
+    eta = '~' + fmtHMS(rem * rate);
+  }
+  const running = S.chunks.find(c => c.status === 'running');
+  $('pSum').textContent = '⏱ পার হয়েছে ' + fmtHMS(el) + ' · বাকি (আনুমানিক) ' + eta + (running ? ' · চাঙ্ক ' + (running.i + 1) + ' / ' + S.chunks.length : '');
+}
+
+/* ==================== FILE LOADING ==================== */
+async function loadVoice(file) {
+  if (!file) return;
+  if (S.exporting) { toast('এক্সপোর্ট চলছে, শেষ হলে আবার চেষ্টা করুন'); return; }
+  if (S.running) await stopRun();
+  await saveNow();
+  pauseAudio();
+  Object.assign(S, { file, audio: null, energy: null, peaks: null, chunks: [], lines: [], history: [], duration: 0, voice: false, activeIdx: -1 });
+  resetRows(['audio', 'engine', 'model', 'asr']); hideErr(); $('pSum').textContent = '';
+  $('voiceInfo').innerHTML = '🎙️ <span class="nm">' + esc(file.name) + '</span><span class="muted small"> · ' + mb(file.size) + ' MB</span>';
+  renderChips(); renderLines(true); renderTags(); S.waveDirty = true; updateUI();
+  setRow('audio', { state: 'run', text: 'শুরু হচ্ছে…', pct: 3 });
+  log('info', 'voice: ' + file.name + ' ' + mb(file.size) + 'MB type=' + (file.type || '?'));
+  try {
+    if (S.audioUrl) URL.revokeObjectURL(S.audioUrl);
+    S.audioUrl = URL.createObjectURL(file);
+    S.audioEl.src = S.audioUrl;
+    const mono = await decodeTo16kMono(file, (txt, pct) => setRow('audio', { state: 'run', text: txt, pct }));
+    if (!mono.length) throw new Error('Audio decode returned 0 samples (empty audio)');
+    setRow('audio', { state: 'run', text: 'ওয়েভফর্ম ও নীরবতা বিশ্লেষণ…', pct: 75 });
+    await sleep(20);
+    S.audio = mono; S.duration = mono.length / SR;
+    S.energy = frameEnergy(mono); S.thr = silenceThreshold(S.energy);
+    S.peaks = computePeaks(mono, 1600);
+    S.voice = detectVoice(S.energy, S.thr);
+    S.chunks = planChunks(mono.length, S.energy).map(c => Object.assign(c, {
+      status: 'pending', segs: [], err: null, silent: isSilentRange(S.energy, c.ownStart, c.ownEnd, S.thr)
+    }));
+    setRow('audio', { state: 'ok', text: 'শেষ · ' + fmtTime(S.duration) + ' · ' + S.chunks.length + 'টি অংশ', pct: 100 });
+    log('info', 'audio ready: ' + S.duration.toFixed(2) + 's, voice=' + S.voice + ', chunks=' + S.chunks.length + ', silent=' + S.chunks.filter(c => c.silent).length);
+  } catch (e) {
+    S.audio = null; S.chunks = [];
+    log('error', 'load voice failed: ' + msgOf(e));
+    setRow('audio', { state: 'err', text: msgOf(e), pct: 100 });
+    showErr('অডিও লোড ব্যর্থ', e);
+    renderTags(); renderChips(); updateUI(); requestRedraw();
+    return;
+  }
+  await restoreSession();
+  renderTags(); renderChips(); renderLines(true); updateAsr(); updateUI();
+  S.waveDirty = true; seekTo(0); requestRedraw();
+}
+
+function loadImage(file) {
+  if (!file) return;
+  const url = URL.createObjectURL(file), img = new Image();
+  img.onload = () => {
+    if (S.imgUrl) URL.revokeObjectURL(S.imgUrl);
+    S.img = img; S.imgUrl = url; S.imgName = file.name; S.bgKey = '';
+    $('imgThumb').src = url;
+    $('imgName').textContent = file.name + ' (' + img.naturalWidth + '×' + img.naturalHeight + ')';
+    $('imageInfo').hidden = false;
+    log('info', 'image: ' + file.name + ' ' + img.naturalWidth + 'x' + img.naturalHeight);
+    requestRedraw();
+  };
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    log('error', 'image load failed: ' + file.name + ' type=' + (file.type || '?'));
+    toast('ছবি লোড হয়নি। HEIC হলে JPG বা PNG দিন');
+  };
+  img.src = url;
+}
+function clearImage() {
+  if (S.imgUrl) URL.revokeObjectURL(S.imgUrl);
+  S.img = null; S.imgUrl = null; S.imgName = ''; S.bgKey = '';
+  $('imageInfo').hidden = true; $('imgThumb').removeAttribute('src');
+  requestRedraw();
+}
+
+/* ==================== MODEL UI ==================== */
+function updateModelNote() {
+  const m = MODELS[S.modelKey];
+  const el = $('modelNote');
+  el.textContent = m.name + ' (প্রথমবার ডাউনলোড ' + m.size + '). ' + m.note;
+  el.className = 'small ' + (S.modelKey === 'tiny' ? 'banner warn' : 'muted');
+}
+async function refreshCacheBadge() {
+  const el = $('cacheBadge'), id = MODELS[S.modelKey].id;
+  try {
+    if (!('caches' in self)) { el.textContent = ''; return; }
+    const c = await caches.open('transformers-cache');
+    const keys = await c.keys();
+    const has = keys.some(r => r.url.indexOf('/' + id + '/') >= 0 && /\.onnx/.test(r.url));
+    el.textContent = has ? '✅ মডেল ক্যাশে আছে, আবার ডাউনলোড হবে না' : '⬇ প্রথমবার মডেল ডাউনলোড হবে, তারপর ক্যাশ থেকে চলবে';
+  } catch (e) { el.textContent = ''; }
+}
+async function onModelChange() {
+  if (S.running) { $('model').value = S.modelKey; return; }
+  await saveNow();
+  S.modelKey = $('model').value; LS.set('model', S.modelKey);
+  updateModelNote(); refreshCacheBadge();
+  if (S.file && S.audio) {
+    resetChunkStates(); await restoreSession();
+    renderChips(); renderLines(true); renderTags(); updateAsr(); S.waveDirty = true; requestRedraw();
+  }
+  updateUI();
+}
+
+/* ==================== TRANSCRIPTION ==================== */
+const dl = { files: new Map(), last: '' };
+function onDl(p) {
+  if (!p.file) return;
+  dl.last = p.file;
+  const f = dl.files.get(p.file) || { loaded: 0, total: 0, done: false };
+  if (p.status === 'progress') { f.loaded = p.loaded || f.loaded; f.total = p.total || f.total; f.done = false; }
+  else if (p.status === 'done') { f.loaded = f.total || f.loaded; f.done = true; }
+  else if (p.status === 'initiate' || p.status === 'download') { f.done = false; }
+  dl.files.set(p.file, f);
+  let L = 0, T = 0, allDone = true;
+  dl.files.forEach(v => { L += v.loaded; T += v.total; if (!v.done) allDone = false; });
+  if (allDone && T > 5 * 1048576) {
+    setRow('model', { state: 'run', text: mb(T) + ' MB ফাইল প্রস্তুত, ONNX সেশন তৈরি হচ্ছে (একটু সময় লাগে)…', ind: true });
+  } else {
+    const pct = T ? Math.min(100, L / T * 100) : 0;
+    setRow('model', { state: 'run', text: mb(L) + ' / ' + mb(T) + ' MB (' + pct.toFixed(0) + '%) · ' + dl.last, pct, ind: !T });
+  }
+}
+function onEngine(m) {
+  if (m.state === 'start') setRow('engine', { state: 'run', text: 'ডাউনলোড শুরু…', pct: 0, ind: true });
+  else if (m.state === 'progress') {
+    const known = m.total && m.loaded <= m.total;
+    setRow('engine', { state: 'run', text: mb(m.loaded) + ' MB' + (m.total ? ' / ' + mb(m.total) + ' MB' : ''), pct: known ? m.loaded / m.total * 100 : 0, ind: !known });
+  } else if (m.state === 'done') setRow('engine', { state: 'ok', text: mb(m.loaded) + ' MB, প্রস্তুত', pct: 100, ind: false });
+  else if (m.state === 'skip') setRow('engine', { state: 'warn', text: 'আলাদা ডাউনলোড হয়নি (ইঞ্জিন নিজেই নামাবে): ' + m.msg, pct: 100, ind: false });
+}
+function onPhase(name) {
+  if (name === 'import') setRow('engine', { state: 'run', text: 'transformers.js লাইব্রেরি লোড হচ্ছে…', pct: 0, ind: true });
+  else if (name === 'model') setRow('model', { state: 'run', text: 'মডেল ফাইল অনুরোধ করা হচ্ছে…', pct: 0, ind: true });
+}
+async function loadEngineWithUi() {
+  const m = MODELS[S.modelKey];
+  if (Engine.ready && Engine.modelId === m.id) { setRow('model', { state: 'ok', text: m.name + ' প্রস্তুত (মেমরিতে আছে)', pct: 100, ind: false }); return; }
+  dl.files.clear(); dl.last = '';
+  resetRows(['engine', 'model']);
+  Engine.hooks = { onDl, onEngine, onPhase };
+  log('info', 'engine load ' + m.id);
+  try { await Engine.load(m.id); }
+  catch (e) {
+    if (!e || !e.stopped) {
+      ['engine', 'model'].forEach(k => { if (rowState[k] && rowState[k].state === 'run') setRow(k, { state: 'err', ind: false, text: msgOf(e) }); });
+    }
+    throw e;
+  }
+  setRow('engine', { state: rowState.engine && rowState.engine.state === 'warn' ? 'warn' : 'ok', ind: false, pct: 100 });
+  setRow('model', { state: 'ok', text: m.name + ' প্রস্তুত', pct: 100, ind: false });
+  refreshCacheBadge();
+}
+
+async function lockScreen() {
+  try { if ('wakeLock' in navigator && !S.wakeLock) { S.wakeLock = await navigator.wakeLock.request('screen'); S.wakeLock.addEventListener('release', () => { S.wakeLock = null; }); } }
+  catch (e) { log('warn', 'wake lock: ' + msgOf(e)); }
+}
+function unlockScreen() { try { if (S.wakeLock) S.wakeLock.release(); } catch (e) { /* ignore */ } S.wakeLock = null; }
+
+async function runTranscription(only) {
+  if (S.running || !S.audio) return;
+  if (ENV.blocked) { renderBanner(); toast('https:// থেকে খুলুন, এখানে লেখা তৈরি বন্ধ'); return; }
+  hideErr();
+  S.maxChars = Math.max(8, Math.min(80, Number($('maxChars').value) || 28));
+  S.bnOnly = $('bnOnly').checked;
+  const todo = S.chunks.filter(c => c.status !== 'done' && (!only || only.indexOf(c.i) >= 0));
+  if (!todo.length) { toast('সব অংশ আগেই শেষ হয়েছে। নতুন করে করতে "নতুন করে শুরু" চাপুন'); return; }
+  S.running = true; S.stop = false; S.t0 = performance.now(); S.stats = { sec: 0, ms: 0 };
+  clearInterval(S.elapsedTimer); S.elapsedTimer = setInterval(updateSummary, 1000);
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* ignore */ }
+  lockScreen(); updateUI(); updateSummary();
+  let fatal = null;
+  try {
+    if (todo.some(c => !c.silent)) await loadEngineWithUi();
+    for (const ch of todo) {
+      if (S.stop) break;
+      await processChunk(ch);
+    }
+  } catch (e) {
+    if (e && e.stopped) log('info', 'stopped by user');
+    else { fatal = e; log('error', 'Transcription failed: ' + msgOf(e)); if (e && e.stack) log('error', 'Detailed error: ' + String(e.stack).split('\n').slice(0, 4).join(' | ')); showErr('Transcription failed', e); }
+  } finally {
+    S.running = false; clearInterval(S.elapsedTimer); unlockScreen();
+    S.chunks.forEach(c => { if (c.status === 'running') c.status = 'pending'; });
+    renderChips(); updateAsr(); updateUI(); saveNow();
+    const el = (performance.now() - S.t0) / 1000;
+    const done = S.chunks.filter(c => c.status === 'done').length, N = S.chunks.length;
+    if (S.stop) { $('pSum').textContent = '⏹ থামানো হয়েছে · ' + done + ' / ' + N + ' অংশ শেষ, পরে "চালিয়ে যান" চাপলে বাকিটা হবে'; }
+    else if (!fatal) {
+      $('pSum').textContent = (done === N ? '✅ শেষ' : '⚠️ শেষ, কিছু অংশ ব্যর্থ') + ' · মোট সময় ' + fmtHMS(el) + ' · ' + S.lines.length + ' লাইন';
+      if (done === N) toast('✅ লেখা তৈরি শেষ, ' + S.lines.length + ' লাইন');
+    }
+  }
+}
+
+async function processChunk(ch) {
+  const N = S.chunks.length;
+  ch.status = 'running'; ch.err = null; renderChips(); updateAsr(); updateSummary();
+  if (ch.silent) {
+    ch.segs = []; ch.status = 'done'; commitChunk(ch);
+    log('info', 'chunk ' + (ch.i + 1) + '/' + N + ' skipped (silent)');
+    renderChips(); updateAsr(); saveNow(); return;
+  }
+  let attempt = 0;
+  for (;;) {
+    if (S.stop) { ch.status = 'pending'; throw Object.assign(new Error('stopped'), { stopped: true }); }
+    if (!Engine.ready) await loadEngineWithUi();          // engine load failure is fatal for the whole run
+    const t1 = performance.now();
+    try {
+      const a0 = Math.floor(ch.aStart * SR), a1 = Math.min(S.audio.length, Math.ceil(ch.aEnd * SR));
+      const buf = S.audio.slice(a0, a1);                   // one chunk copy, transferred to the worker
+      log('info', 'chunk ' + (ch.i + 1) + '/' + N + ' start (' + (buf.length / SR).toFixed(1) + 's audio)');
+      const res = await Engine.transcribe(buf, 480000);
+      ch.segs = cleanSegments(res.chunks, ch, { bnOnly: S.bnOnly, total: S.duration });
+      ch.status = 'done'; ch.err = null;
+      S.stats.sec += ch.ownEnd - ch.ownStart; S.stats.ms += performance.now() - t1;
+      log('info', 'chunk ' + (ch.i + 1) + '/' + N + ' done in ' + ((performance.now() - t1) / 1000).toFixed(1) + 's: ' + (res.chunks || []).length + ' raw, ' + ch.segs.length + ' kept');
+      commitChunk(ch); renderChips(); updateAsr(); saveNow();
+      return;
+    } catch (e) {
+      if (e && e.stopped) { ch.status = 'pending'; throw e; }
+      log('error', 'chunk ' + (ch.i + 1) + ' failed: ' + msgOf(e));
+      if (attempt === 0 && !S.stop) {
+        attempt++;
+        log('warn', 'restarting engine and retrying chunk ' + (ch.i + 1) + ' once…');
+        try { Engine.terminate(); } catch (_) { /* ignore */ }
+        continue;
+      }
+      ch.status = 'failed'; ch.err = msgOf(e);
+      renderChips(); updateAsr(); saveNow();
+      return;
+    }
+  }
+}
+
+async function stopRun() {
+  if (!S.running) return;
+  S.stop = true; Engine.terminate();
+  log('warn', 'stop requested: worker terminated');
+  for (let i = 0; i < 60 && S.running; i++) await sleep(50);
+}
+
+async function onReset() {
+  if (S.running || !S.audio) return;
+  if (!confirm('সংরক্ষিত কাজ ও সব লাইন মুছে নতুন করে শুরু হবে। এগিয়ে যাবেন?')) return;
+  try { await Store.del(sessionKey()); } catch (e) { /* ignore */ }
+  resetChunkStates(); renderChips(); renderLines(true); updateAsr(); S.waveDirty = true; updateUI();
+  runTranscription();
+}
+
+/* ==================== EXPORT ==================== */
+function pickMime() {
+  const c = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+  for (const m of c) { try { if (MediaRecorder.isTypeSupported(m)) return m; } catch (e) { /* next */ } }
+  return '';
+}
+let expUrl = null;
+async function exportVideo() {
+  if (S.exporting || !S.audio) return;
+  if (typeof MediaRecorder === 'undefined' || !HTMLCanvasElement.prototype.captureStream) { toast('এই ব্রাউজারে ভিডিও এক্সপোর্ট সাপোর্ট নেই'); return; }
+  if (!S.lines.some(l => l.t.trim()) && !confirm('কোনো সাবটাইটেল লাইন নেই। তবুও ভিডিও এক্সপোর্ট করবেন?')) return;
+  const parts = $('expRes').value.split('x').map(Number), W = parts[0], H = parts[1];
+  pauseAudio();
+  S.exporting = true; S.exportCancel = false; updateUI(); lockScreen();
+  $('expOut').innerHTML = ''; $('expBar').hidden = false; $('expTxt').textContent = 'প্রস্তুত হচ্ছে…';
+  const bar = $('expBar').firstElementChild; bar.style.width = '0%';
+  const cv = $('preview'); cv.width = W; cv.height = H; S.bgKey = '';
+  const vol = Number($('vol').value);
+  let rec = null;
+  try {
+    ensureAudioGraph();
+    const mime = pickMime();
+    const vstream = cv.captureStream(30);
+    let atrack = null;
+    if (S.streamDest) atrack = S.streamDest.stream.getAudioTracks()[0];
+    else if (S.audioEl.captureStream) atrack = S.audioEl.captureStream().getAudioTracks()[0];
+    if (atrack) vstream.addTrack(atrack); else log('warn', 'export: no audio track available, video will be silent');
+    rec = new MediaRecorder(vstream, Object.assign({ videoBitsPerSecond: W >= 1080 ? 8e6 : 5e6, audioBitsPerSecond: 128000 }, mime ? { mimeType: mime } : {}));
+    log('info', 'export start ' + W + 'x' + H + ' mime=' + (rec.mimeType || mime || 'default'));
+    const chunks = [];
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.onerror = e => log('error', 'MediaRecorder error: ' + msgOf(e.error || e));
+    const stopped = new Promise(res => { rec.onstop = res; });
+    if (S.gain) S.gain.gain.value = 0;                     // silent while recording
+    seekTo(0); await sleep(250);
+    frame();
+    rec.start(1000);
+    await S.audioEl.play();
+    const D = S.duration;
+    await new Promise(res => {
+      const tm = setInterval(() => {
+        const t = S.audioEl.currentTime || 0;
+        bar.style.width = Math.min(100, t / D * 100).toFixed(1) + '%';
+        $('expTxt').textContent = 'রেকর্ডিং: ' + fmtTime(t) + ' / ' + fmtTime(D) + ' (' + Math.min(100, t / D * 100).toFixed(0) + '%)';
+        if (S.exportCancel || S.audioEl.ended || t >= D - 0.03) { clearInterval(tm); res(); }
+      }, 250);
+      S.audioEl.addEventListener('ended', () => { clearInterval(tm); res(); }, { once: true });
+    });
+    pauseAudio();
+    await sleep(400);
+    if (rec.state !== 'inactive') rec.stop();
+    await stopped;
+    if (S.exportCancel) { $('expTxt').textContent = 'এক্সপোর্ট বাতিল হয়েছে'; log('info', 'export cancelled'); }
+    else {
+      const type = rec.mimeType || mime || 'video/webm';
+      const blob = new Blob(chunks, { type });
+      const ext = /mp4/.test(type) ? 'mp4' : 'webm';
+      const name = baseName() + '-subtitled.' + ext;
+      if (expUrl) URL.revokeObjectURL(expUrl);
+      expUrl = URL.createObjectURL(blob);
+      bar.style.width = '100%';
+      $('expTxt').textContent = '✅ শেষ · ' + ext.toUpperCase() + ' · ' + mb(blob.size) + ' MB';
+      const host = $('expOut'); host.innerHTML = '';
+      const b = document.createElement('button');
+      b.className = 'btn primary'; b.style.width = '100%'; b.textContent = '⬇ ভিডিও ডাউনলোড (' + name + ')';
+      b.onclick = () => downloadBlob(blob, name);
+      const v = document.createElement('video');
+      v.src = expUrl; v.controls = true; v.playsInline = true; v.style.cssText = 'width:100%;max-width:340px;display:block;margin:10px auto 0;border-radius:12px';
+      host.appendChild(b); host.appendChild(v);
+      log('info', 'export done: ' + name + ' ' + mb(blob.size) + 'MB');
+    }
+  } catch (e) {
+    log('error', 'export failed: ' + msgOf(e));
+    $('expTxt').textContent = '❌ এক্সপোর্ট ব্যর্থ: ' + msgOf(e);
+    try { if (rec && rec.state !== 'inactive') rec.stop(); } catch (_) { /* ignore */ }
+  } finally {
+    if (S.gain) S.gain.gain.value = vol;
+    pauseAudio(); S.exporting = false; unlockScreen(); updateUI(); requestRedraw();
+    setTimeout(() => { if (!S.exporting) $('expBar').hidden = true; }, 1500);
+  }
+}
+
+/* ==================== INIT ==================== */
+function applyTheme(mode) {
+  const r = document.documentElement;
+  if (mode === 'auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', mode);
+  LS.set('theme', mode); S.waveDirty = true; requestRedraw();
+}
+
+function init() {
+  S.style = Object.assign({}, STYLE_DEFAULTS, LS.get('style', {}));
+  const sm = LS.get('model', 'small'); S.modelKey = MODELS[sm] ? sm : 'small';
+  S.audioEl = new Audio(); S.audioEl.preload = 'auto';
+
+  // theme
+  let theme = LS.get('theme', 'auto'); applyTheme(theme);
+  $('themeBtn').onclick = () => { theme = theme === 'auto' ? 'dark' : theme === 'dark' ? 'light' : 'auto'; applyTheme(theme); toast('থিম: ' + (theme === 'auto' ? 'অটো' : theme === 'dark' ? 'ডার্ক' : 'লাইট')); };
+
+  // model select
+  $('model').innerHTML = Object.keys(MODELS).map(k => '<option value="' + k + '">' + MODELS[k].name + ' (' + MODELS[k].size + ')' + (k === 'small' ? ' ⭐ সুপারিশকৃত' : k === 'tiny' ? ' ⚠️ বাংলায় দুর্বল' : '') + '</option>').join('');
+  $('model').value = S.modelKey;
+  $('model').onchange = onModelChange;
+  updateModelNote(); refreshCacheBadge();
+
+  // uploads
+  $('voiceInput').onchange = e => { const f = e.target.files[0]; e.target.value = ''; loadVoice(f); };
+  $('imageInput').onchange = e => { const f = e.target.files[0]; e.target.value = ''; loadImage(f); };
+  $('imgClear').onclick = clearImage;
+
+  // transcription controls
+  $('btnStart').onclick = () => runTranscription();
+  $('btnStop').onclick = () => stopRun().then(() => toast('থামানো হয়েছে'));
+  $('btnReset').onclick = onReset;
+  $('maxChars').onchange = () => { S.maxChars = Math.max(8, Math.min(80, Number($('maxChars').value) || 28)); $('maxChars').value = S.maxChars; toast('নতুন সীমা পরের অংশগুলোতে কাজ করবে। আগেরগুলোতে "আবার ভাগ করুন" চাপুন'); };
+  $('chips').addEventListener('click', e => {
+    const b = e.target.closest('.chip'); if (!b) return;
+    const ch = S.chunks[+b.dataset.i]; if (!ch) return;
+    if (ch.status === 'failed') { if (S.running) toast('চলমান কাজ শেষ হওয়া পর্যন্ত অপেক্ষা করুন'); else runTranscription([ch.i]); }
+    else seekTo(ch.ownStart);
+  });
+
+  // editor
+  const lines = $('lines');
+  lines.addEventListener('click', onLinesClick);
+  lines.addEventListener('input', onLinesInput);
+  lines.addEventListener('change', onLinesChange);
+  lines.addEventListener('focusout', () => setTimeout(() => { if (S.pendingRender && !lines.contains(document.activeElement)) renderLines(true); }, 400));
+  $('btnAdd').onclick = addLineAtPlayhead;
+  $('btnUndo').onclick = undo;
+  $('btnResplit').onclick = resplitAll;
+  $('btnSrt').onclick = downloadSrt;
+
+  // player
+  const a = S.audioEl;
+  a.addEventListener('play', () => { S.playing = true; $('btnPlay').textContent = '⏸'; requestRedraw(); });
+  const stopped = () => { S.playing = false; $('btnPlay').textContent = '▶'; requestRedraw(); };
+  a.addEventListener('pause', stopped); a.addEventListener('ended', stopped);
+  a.addEventListener('seeked', requestRedraw);
+  a.addEventListener('error', () => log('error', 'audio element error code=' + (a.error && a.error.code) + ' ' + ((a.error && a.error.message) || '')));
+  $('btnPlay').onclick = togglePlay;
+  $('btnPrev').onclick = () => stepLine(-1);
+  $('btnNext').onclick = () => stepLine(1);
+  $('seek').addEventListener('input', e => { if (dur()) seekTo(Number(e.target.value) / 1000 * dur()); });
+  $('vol').addEventListener('input', e => setVolume(Number(e.target.value)));
+  const wave = $('wave');
+  wave.addEventListener('pointerdown', e => { S.dragWave = true; try { wave.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ } waveSeek(e); });
+  wave.addEventListener('pointermove', e => { if (S.dragWave) waveSeek(e); });
+  const endDrag = () => { S.dragWave = false; };
+  wave.addEventListener('pointerup', endDrag); wave.addEventListener('pointercancel', endDrag);
+  if (window.ResizeObserver) new ResizeObserver(() => { S.waveDirty = true; requestRedraw(); }).observe(wave);
+  window.addEventListener('resize', () => { S.waveDirty = true; requestRedraw(); });
+
+  // style + export
+  buildStyleUI(); loadFont();
+  $('btnStyleReset').onclick = () => { S.style = Object.assign({}, STYLE_DEFAULTS); LS.set('style', S.style); syncStyleUI(); loadFont(); requestRedraw(); };
+  $('cardStyle').addEventListener('toggle', requestRedraw);
+  $('expRes').onchange = () => { if (S.exporting) return; const p = $('expRes').value.split('x').map(Number); const cv = $('preview'); cv.width = p[0]; cv.height = p[1]; S.bgKey = ''; requestRedraw(); };
+  $('btnExport').onclick = exportVideo;
+  $('btnExpCancel').onclick = () => { S.exportCancel = true; };
+
+  // debug log
+  $('btnCopyLog').onclick = copyLog;
+  $('btnClearLog').onclick = () => { LOGS.length = 0; $('dbg').textContent = ''; $('pLog').textContent = ''; };
+
+  // global safety nets
+  window.addEventListener('error', e => log('error', 'window.onerror: ' + e.message + ' @ ' + (e.filename || '') + ':' + (e.lineno || '')));
+  window.addEventListener('unhandledrejection', e => log('error', 'unhandledrejection: ' + msgOf(e.reason)));
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') saveNow();
+    else if (S.running || S.exporting) lockScreen();
+  });
+  window.addEventListener('pagehide', saveNow);
+
+  renderBanner(); flushRows(); renderChips(); renderLines(true); updateUI();
+  drawWave(0); requestRedraw();
+  log('info', envSummary());
+  if (ENV.blocked) log('error', 'blocked: page opened from ' + ENV.proto + '// (secure=' + ENV.secure + '). Host it on https.');
+}
+init();
+
+</script>
+</body>
+</html>
