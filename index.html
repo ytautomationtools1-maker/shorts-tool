@@ -159,7 +159,7 @@ input[type=checkbox]{width:26px;height:26px;accent-color:var(--accent)}
   <header class="top">
     <div>
       <h1>Shorts Video Tool — Auto Bengali Transcription</h1>
-      <p class="sub">ভয়েস আপলোড করলেই বাংলা সাবটাইটেল তৈরি। সবকিছু আপনার ফোনের ব্রাউজারেই চলে, অডিও কোথাও আপলোড হয় না। <span class="mono">সংস্করণ v5</span></p>
+      <p class="sub">ভয়েস আপলোড করলেই বাংলা সাবটাইটেল তৈরি। সবকিছু আপনার ফোনের ব্রাউজারেই চলে, অডিও কোথাও আপলোড হয় না। <span class="mono">সংস্করণ v7</span></p>
     </div>
     <button id="themeBtn" class="btn sm icon" aria-label="থিম বদলান" title="থিম">🌓</button>
   </header>
@@ -664,7 +664,7 @@ const MODELS = {
 
 /* Engine profiles. "auto" walks this ladder when one fails on the phone. */
 const PROFILE_LABEL = { v3wasm: 'v3 WASM', v2wasm: 'v2 WASM', v3gpu: 'WebGPU' };
-const LADDER = ['v3wasm', 'v2wasm'].concat((typeof navigator !== 'undefined' && navigator.gpu) ? ['v3gpu'] : []);
+const LADDER = ['v3wasm', 'v2wasm'];            // WebGPU is manual-only (many phones expose navigator.gpu but have no usable GPU adapter)
 function modelIdFor(profile, key) { return profile === 'v3gpu' ? 'onnx-community/whisper-' + key : MODELS[key].id; }
 
 const STYLE_DEFAULTS = {
@@ -884,10 +884,14 @@ const Engine = {
     this.watch = setInterval(() => {
       const idle = performance.now() - this.lastEvt;
       const downloading = this.lastKind === 'initiate' || this.lastKind === 'download' || this.lastKind === 'progress';
-      const limit = (this.phase === 'import' || this.phase === 'engine' || downloading) ? 60000 : 180000;   // ONNX session creation may be slow
+      const limit = (this.phase === 'import' || this.phase === 'engine') ? 60000 : (downloading ? 150000 : 180000);   // session creation may be slow
       if (idle > limit) {
-        this._fail(new Error('Engine init timeout: no activity for ' + Math.round(idle / 1000) + 's in phase "' + this.phase +
-          '" (limit ' + limit / 1000 + 's). The runtime/model did not start.'));
+        const stall = downloading && this.phase === 'model';
+        const err = new Error(stall
+          ? 'Download stalled: no data for ' + Math.round(idle / 1000) + 's while downloading model files (limit ' + limit / 1000 + 's). Check the internet connection.'
+          : 'Engine init timeout: no activity for ' + Math.round(idle / 1000) + 's in phase "' + this.phase + '" (limit ' + limit / 1000 + 's). The runtime/model did not start.');
+        err.dlStall = stall;
+        this._fail(err);
       }
     }, 1000);
     p.then(() => { clearInterval(this.watch); this.watch = 0; }, () => { /* handled by caller */ });
@@ -1389,6 +1393,8 @@ function explainError(msg) {
   if (/memory|alloc|oom|out of|rangeerror|array buffer|crash|abort code/.test(m)) r.push('মেমরি সীমা: Base বা Tiny মডেল নিন, অন্য ট্যাব ও অ্যাপ বন্ধ করুন');
   if (/wasm|webassembly|onnx|\bort\b|instantiate|compile/.test(m)) r.push('WASM / ONNX চালু হয়নি (init failed)');
   if (!ENV.simd) r.push('এই ব্রাউজারে WASM SIMD নেই: Chrome আপডেট করুন');
+  if (/download stalled/.test(m)) r.push('ডাউনলোড থেমে গেছে: ইন্টারনেট ধীর বা বন্ধ ছিল। Wi-Fi দিয়ে আবার চেষ্টা করুন, স্ক্রিন চালু রাখুন ও অন্য অ্যাপে যাবেন না। ডাউনলোড হওয়া ফাইল সেভ থাকে, তাই আবার চাপলে বাকিটা হবে');
+  if (/gpu adapter|no available backend|webgpu/.test(m)) r.push('এই ফোনে WebGPU চলে না। "ইঞ্জিন" ঘরে অটো বা v3 WASM বেছে নিন');
   if (/ortrun|error code = 6|abort code|out of memory|bad_alloc/.test(m)) r.push('চালানোর সময় ফোনের মেমরি শেষ হয়ে যাচ্ছে। Chrome-এর অন্য সব ট্যাব ও অ্যাপ বন্ধ করে Chrome রিস্টার্ট করুন, শুধু এই ট্যাব খুলে আবার চেষ্টা করুন');
   if (/model load failed|unsupported model type/.test(m)) r.push('মডেল লোড হয়নি। সম্ভবত ফোনের মেমরি কম: Base মডেল নিন, অন্য অ্যাপ/ট্যাব বন্ধ করে আবার চেষ্টা করুন');
   if (/audio decode|decodeaudiodata|unsupported audio|corrupt/.test(m)) r.push('অডিও ফরম্যাট সাপোর্ট করছে না: MP3, WAV বা M4A দিন');
@@ -1602,7 +1608,8 @@ async function onModelChange() {
 }
 
 /* ==================== TRANSCRIPTION ==================== */
-const dl = { files: new Map(), last: '' };
+const dl = { files: new Map(), last: '', maxPct: 0 };
+function shortFile(n) { return String(n).split('/').pop().replace('_quantized', '').replace('.onnx', ''); }
 function onDl(p) {
   if (!p.file) return;
   dl.last = p.file;
@@ -1611,14 +1618,18 @@ function onDl(p) {
   else if (p.status === 'done') { f.loaded = f.total || f.loaded; f.done = true; }
   else if (p.status === 'initiate' || p.status === 'download') { f.done = false; }
   dl.files.set(p.file, f);
+  // Only the big .onnx files count towards the bar, so tiny config files never make it jump to ~100% and "restart".
+  const big = Array.from(dl.files.entries()).filter(e => /\.onnx/.test(e[0]));
+  if (!big.length) { setRow('model', { state: 'run', text: 'ছোট কনফিগ ফাইল আনা হচ্ছে…', ind: true }); return; }
   let L = 0, T = 0, allDone = true;
-  dl.files.forEach(v => { L += v.loaded; T += v.total; if (!v.done) allDone = false; });
-  if (allDone && T > 5 * 1048576) {
-    setRow('model', { state: 'run', text: mb(T) + ' MB ফাইল প্রস্তুত, ONNX সেশন তৈরি হচ্ছে (একটু সময় লাগে)…', ind: true });
-  } else {
-    const pct = T ? Math.min(100, L / T * 100) : 0;
-    setRow('model', { state: 'run', text: mb(L) + ' / ' + mb(T) + ' MB (' + pct.toFixed(0) + '%) · ' + dl.last, pct, ind: !T });
+  big.forEach(e => { L += e[1].loaded; T += e[1].total; if (!e[1].done) allDone = false; });
+  if (allDone) {
+    setRow('model', { state: 'run', text: mb(T) + ' MB ফাইল প্রস্তুত, ONNX সেশন তৈরি হচ্ছে (একটু সময় লাগে)…', ind: true, pct: 100 });
+    return;
   }
+  dl.maxPct = Math.max(dl.maxPct, T ? Math.min(99, L / T * 100) : 0);   // never goes backwards
+  const per = big.map(e => shortFile(e[0]) + ' ' + (e[1].done ? 100 : (e[1].total ? Math.round(e[1].loaded / e[1].total * 100) : 0)) + '%').join(' · ');
+  setRow('model', { state: 'run', text: mb(L) + ' / ' + mb(T) + ' MB (' + dl.maxPct.toFixed(0) + '%) · ' + per, pct: dl.maxPct, ind: !T });
 }
 function curProfile() { return S.engineSel === 'auto' ? LADDER[Math.min(S.ladderIdx, LADDER.length - 1)] : S.engineSel; }
 function nextProfile(reason) {
@@ -1649,7 +1660,7 @@ function onPhase(name) {
 async function loadEngineWithUi() {
   const m = MODELS[S.modelKey], prof = curProfile(), mid = modelIdFor(prof, S.modelKey);
   if (Engine.ready && Engine.modelId === mid && Engine.profile === prof) { setRow('model', { state: 'ok', text: m.name + ' প্রস্তুত (মেমরিতে আছে)', pct: 100, ind: false }); return; }
-  dl.files.clear(); dl.last = '';
+  dl.files.clear(); dl.last = ''; dl.maxPct = 0;
   resetRows(['engine', 'model']);
   Engine.hooks = { onDl, onEngine, onPhase };
   log('info', 'engine load ' + mid + ' profile=' + prof);
@@ -1668,11 +1679,21 @@ async function loadEngineWithUi() {
 
 /* Load failure ladder: Small -> Base (memory), then next engine profile (auto mode). */
 async function loadEngineWithFallback() {
+  let stallRetries = 0;
   for (;;) {
     try { await loadEngineWithUi(); return; }
     catch (e) {
       if ((e && e.stopped) || S.stop) throw e;
       const msg = msgOf(e);
+      if (e && e.dlStall) {                    // slow/stalled network: retry the SAME engine, never switch (switching restarts downloads)
+        if (stallRetries < 2) {
+          stallRetries++;
+          log('warn', 'download stalled, retrying same engine (' + stallRetries + '/2). Finished files are cached.');
+          toast('ডাউনলোড থেমে গিয়েছিল, আবার চেষ্টা হচ্ছে');
+          hideErr(); continue;
+        }
+        throw e;
+      }
       if (S.modelKey === 'small' && /model load failed|unsupported model type|abort|alloc|memory|session|ortrun|error code/i.test(msg)) {
         log('warn', 'Small model failed on this device (' + msg + '). Switching to Base automatically.');
         toast('Small এই ফোনে লোড হয়নি, Base মডেলে চলছে');
@@ -1897,8 +1918,15 @@ function init() {
   updateModelNote(); refreshCacheBadge();
   S.engineSel = LS.get('engine', 'auto');
   if (S.engineSel !== 'auto' && !PROFILE_LABEL[S.engineSel]) S.engineSel = 'auto';
-  $('engineSel').innerHTML = '<option value="auto">অটো (সুপারিশকৃত)</option><option value="v3wasm">v3 WASM</option><option value="v2wasm">v2 WASM (পুরনো)</option>' +
-    (navigator.gpu ? '<option value="v3gpu">WebGPU (দ্রুত, পরীক্ষামূলক)</option>' : '');
+  $('engineSel').innerHTML = '<option value="auto">অটো (সুপারিশকৃত)</option><option value="v3wasm">v3 WASM</option><option value="v2wasm">v2 WASM (পুরনো)</option>';
+  if (S.engineSel === 'v3gpu') S.engineSel = 'auto';
+  (async () => {   // offer WebGPU only if the phone really has a GPU adapter
+    try {
+      const ad = navigator.gpu && await navigator.gpu.requestAdapter();
+      if (ad) { const o = document.createElement('option'); o.value = 'v3gpu'; o.textContent = 'WebGPU (দ্রুত, পরীক্ষামূলক)'; $('engineSel').appendChild(o); log('info', 'WebGPU adapter available'); }
+      else log('info', 'WebGPU not usable on this device (no adapter)');
+    } catch (e) { log('info', 'WebGPU check failed: ' + msgOf(e)); }
+  })();
   $('engineSel').value = S.engineSel;
   $('engineSel').onchange = () => {
     if (S.running) { $('engineSel').value = S.engineSel; return; }
