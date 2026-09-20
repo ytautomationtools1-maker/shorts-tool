@@ -159,7 +159,7 @@ input[type=checkbox]{width:26px;height:26px;accent-color:var(--accent)}
   <header class="top">
     <div>
       <h1>Shorts Video Tool — Auto Bengali Transcription</h1>
-      <p class="sub">ভয়েস আপলোড করলেই বাংলা সাবটাইটেল তৈরি। সবকিছু আপনার ফোনের ব্রাউজারেই চলে, অডিও কোথাও আপলোড হয় না। <span class="mono">সংস্করণ v3</span></p>
+      <p class="sub">ভয়েস আপলোড করলেই বাংলা সাবটাইটেল তৈরি। সবকিছু আপনার ফোনের ব্রাউজারেই চলে, অডিও কোথাও আপলোড হয় না। <span class="mono">সংস্করণ v4</span></p>
     </div>
     <button id="themeBtn" class="btn sm icon" aria-label="থিম বদলান" title="থিম">🌓</button>
   </header>
@@ -218,6 +218,12 @@ input[type=checkbox]{width:26px;height:26px;accent-color:var(--accent)}
       <div id="cacheBadge" class="small"></div>
       <button id="btnClearCache" class="btn sm" type="button">🧹 মডেল ক্যাশ মুছুন</button>
     </div>
+    <div class="field">
+      <label for="engineSel">ইঞ্জিন</label>
+      <select id="engineSel"></select>
+      <div id="engineNote" class="small muted"></div>
+    </div>
+    <div class="banner warn small" style="margin-bottom:10px">💡 লেখা তৈরির সময় মেমরি বেশি লাগে। শুরুর আগে Chrome-এর অন্য সব ট্যাব ও অ্যাপ বন্ধ করুন।</div>
     <div class="field">
       <label for="maxChars">প্রতি লাইনে সর্বোচ্চ অক্ষর</label>
       <input id="maxChars" type="number" inputmode="numeric" min="8" max="80" value="28">
@@ -284,8 +290,13 @@ input[type=checkbox]{width:26px;height:26px;accent-color:var(--accent)}
 
 <script type="text/plain" id="worker-src">
 'use strict';
-/* Whisper worker: transformers.js v2.17.2 (ONNX Runtime Web, WASM). Bengali, task = transcribe. */
-var LIB = 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
+/* Whisper worker. Three engine profiles (chosen by the page):
+   v2wasm : transformers.js 2.17.2 (ONNX Runtime Web 1.14), int8 model, WASM
+   v3wasm : transformers.js 3.x    (newer ONNX Runtime),      int8 model, WASM
+   v3gpu  : transformers.js 3.x,                              WebGPU (experimental)
+   Bengali, task = transcribe, segment timestamps. */
+var CDN2 = 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
+var CDN3 = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3';
 var tf = null, asr = null;
 
 function send(m) { self.postMessage(m); }
@@ -297,8 +308,7 @@ function simdOk() {
   } catch (e) { return false; }
 }
 
-/* Download the ONNX Runtime WASM file ourselves so real byte progress can be shown.
-   ONNX Runtime later fetches the same URL from the HTTP cache. Failure is non-fatal. */
+/* v2 only: download the ONNX Runtime WASM file ourselves so real byte progress can be shown. Non-fatal. */
 async function prefetchEngine(url) {
   send({ type: 'phase', name: 'engine' });
   send({ type: 'engine', state: 'start', url: url });
@@ -316,13 +326,16 @@ async function prefetchEngine(url) {
   send({ type: 'engine', state: 'done', loaded: loaded, total: total });
 }
 
-async function load(modelId) {
+async function load(modelId, profile) {
+  var ver = profile === 'v2wasm' ? 2 : 3;
+  var device = profile === 'v3gpu' ? 'webgpu' : 'wasm';
   send({ type: 'phase', name: 'import' });
-  wlog('info', 'engine.load ' + modelId + ' ...');
+  wlog('info', 'engine.load ' + modelId + ' profile=' + profile + ' ...');
   wlog('info', 'worker env: secure=' + self.isSecureContext + ' coi=' + self.crossOriginIsolated + ' simd=' + simdOk() +
-    ' cores=' + (self.navigator && navigator.hardwareConcurrency) + ' cache=' + (typeof caches !== 'undefined'));
-  var urls = [LIB + '/dist/transformers.min.js', LIB];
+    ' gpu=' + !!(self.navigator && navigator.gpu) + ' cores=' + (self.navigator && navigator.hardwareConcurrency) + ' cache=' + (typeof caches !== 'undefined'));
+  var urls = ver === 2 ? [CDN2 + '/dist/transformers.min.js', CDN2] : [CDN3, CDN3 + '/dist/transformers.min.js'];
   var lastErr = null;
+  tf = null;
   for (var i = 0; i < urls.length && !tf; i++) {
     try {
       wlog('info', 'lib import ' + urls[i]);
@@ -336,32 +349,40 @@ async function load(modelId) {
   env.allowLocalModels = false;
   env.allowRemoteModels = true;
   env.useBrowserCache = true;                       // model files are kept in the Cache API
-  if (env.backends && env.backends.onnx && env.backends.onnx.wasm) {
-    env.backends.onnx.wasm.wasmPaths = LIB + '/dist/';
-    env.backends.onnx.wasm.numThreads = 1;          // no SharedArrayBuffer needed
-    env.backends.onnx.wasm.proxy = false;
+  var ow = env.backends && env.backends.onnx && env.backends.onnx.wasm;
+  if (ow) {
+    ow.numThreads = 1;                              // no SharedArrayBuffer needed
+    if (ver === 2) { ow.wasmPaths = CDN2 + '/dist/'; ow.proxy = false; }
   }
-  try {
-    await prefetchEngine(LIB + '/dist/' + (simdOk() ? 'ort-wasm-simd.wasm' : 'ort-wasm.wasm'));
-  } catch (e) {
-    wlog('warn', 'engine prefetch skipped: ' + errText(e));
-    send({ type: 'engine', state: 'skip', msg: errText(e) });
+  if (ver === 2) {
+    try {
+      await prefetchEngine(CDN2 + '/dist/' + (simdOk() ? 'ort-wasm-simd.wasm' : 'ort-wasm.wasm'));
+    } catch (e) {
+      wlog('warn', 'engine prefetch skipped: ' + errText(e));
+      send({ type: 'engine', state: 'skip', msg: errText(e) });
+    }
+  } else {
+    send({ type: 'engine', state: 'na' });
   }
 
   send({ type: 'phase', name: 'model' });
-  wlog('info', 'pipeline create ' + modelId);
-  var pcb = function (p) {
+  var popts;
+  if (ver === 2) popts = { quantized: true };
+  else if (device === 'webgpu') popts = { device: 'webgpu', dtype: { encoder_model: 'fp32', decoder_model_merged: 'q4' } };
+  else popts = { device: 'wasm', dtype: 'q8' };
+  popts.progress_callback = function (p) {
     send({ type: 'dl', p: { status: p.status, file: p.file, name: p.name, progress: p.progress, loaded: p.loaded, total: p.total } });
   };
+  wlog('info', 'pipeline create ' + modelId);
   try {
-    asr = await tf.pipeline('automatic-speech-recognition', modelId, { quantized: true, progress_callback: pcb });
+    asr = await tf.pipeline('automatic-speech-recognition', modelId, popts);
   } catch (e) {
     /* transformers.js tries several model classes and reports only the LAST error, which for Whisper is the misleading
        "Unsupported model type: whisper". Load the model directly (files are cached) to reveal the real cause. */
     if (/Unsupported model type/i.test(errText(e)) && tf.AutoModelForSpeechSeq2Seq) {
       wlog('warn', 'pipeline() reported "' + errText(e) + '" (misleading). Probing the real cause...');
       try {
-        await tf.AutoModelForSpeechSeq2Seq.from_pretrained(modelId, { quantized: true });
+        await tf.AutoModelForSpeechSeq2Seq.from_pretrained(modelId, popts);
         wlog('warn', 'direct model load unexpectedly succeeded');
       } catch (e2) {
         var real = errText(e2);
@@ -379,7 +400,7 @@ self.onmessage = async function (e) {
   var m = e.data;
   try {
     if (m.type === 'load') {
-      await load(m.modelId);
+      await load(m.modelId, m.profile || 'v2wasm');
     } else if (m.type === 'transcribe') {
       if (!asr) throw new Error('model is not loaded');
       var t0 = Date.now();
@@ -636,6 +657,11 @@ const MODELS = {
   small: { id: 'Xenova/whisper-small', name: 'Whisper Small', size: '~250 MB', note: 'বাংলায় সবচেয়ে ভালো মান, তবে ধীর এবং অনেক মেমরি লাগে। কিছু ফোনে লোড ব্যর্থ হয়, তখন Base নিন।' }
 };
 
+/* Engine profiles. "auto" walks this ladder when one fails on the phone. */
+const PROFILE_LABEL = { v3wasm: 'v3 WASM', v2wasm: 'v2 WASM', v3gpu: 'WebGPU' };
+const LADDER = ['v3wasm', 'v2wasm'].concat((typeof navigator !== 'undefined' && navigator.gpu) ? ['v3gpu'] : []);
+function modelIdFor(profile, key) { return profile === 'v3gpu' ? 'onnx-community/whisper-' + key : MODELS[key].id; }
+
 const STYLE_DEFAULTS = {
   font: 'Hind Siliguri', size: 64, bold: true, color: '#ffffff', stroke: '#000000', strokeW: 6,
   shadow: true, box: false, boxColor: '#000000', boxOpacity: 55, pos: 78, width: 88,
@@ -645,7 +671,7 @@ const STYLE_DEFAULTS = {
 const S = {
   file: null, audio: null, energy: null, peaks: null, thr: 0.006, duration: 0, voice: false,
   chunks: [], lines: [], idSeq: 0, history: [],
-  modelKey: 'base', maxChars: 28, bnOnly: true,
+  engineSel: 'auto', ladderIdx: 0, modelKey: 'base', maxChars: 28, bnOnly: true,
   running: false, stop: false, t0: 0, stats: { sec: 0, ms: 0 }, elapsedTimer: 0,
   audioEl: null, audioUrl: null, playing: false,
   ctx: null, gain: null, streamDest: null, srcNode: null,
@@ -777,7 +803,7 @@ function resetRows(keys) { for (const k of keys) rowState[k] = { state: 'idle', 
 
 /* ---------- Whisper engine (Web Worker wrapper) ---------- */
 const Engine = {
-  w: null, url: null, ready: false, modelId: null, loading: null, pending: new Map(), seq: 0,
+  w: null, url: null, ready: false, modelId: null, profile: '', loading: null, pending: new Map(), seq: 0,
   lastEvt: 0, phase: 'idle', lastKind: '', watch: 0, _res: null, _rej: null, hooks: {},
   touch() { this.lastEvt = performance.now(); },
   _spawn() {
@@ -841,11 +867,11 @@ const Engine = {
       default: break;
     }
   },
-  load(modelId) {
-    if (this.ready && this.modelId === modelId) return Promise.resolve();
-    if (this.loading && this.modelId === modelId) return this.loading;
+  load(modelId, profile) {
+    if (this.ready && this.modelId === modelId && this.profile === profile) return Promise.resolve();
+    if (this.loading && this.modelId === modelId && this.profile === profile) return this.loading;
     this._spawn();
-    this.modelId = modelId;
+    this.modelId = modelId; this.profile = profile;
     this.phase = 'import'; this.lastKind = '';
     this.touch();
     const p = new Promise((res, rej) => { this._res = res; this._rej = rej; });
@@ -860,7 +886,7 @@ const Engine = {
       }
     }, 1000);
     p.then(() => { clearInterval(this.watch); this.watch = 0; }, () => { /* handled by caller */ });
-    this.w.postMessage({ type: 'load', modelId });
+    this.w.postMessage({ type: 'load', modelId, profile });
     return p;
   },
   transcribe(f32, timeoutMs) {
@@ -1358,6 +1384,7 @@ function explainError(msg) {
   if (/memory|alloc|oom|out of|rangeerror|array buffer|crash|abort code/.test(m)) r.push('মেমরি সীমা: Base বা Tiny মডেল নিন, অন্য ট্যাব ও অ্যাপ বন্ধ করুন');
   if (/wasm|webassembly|onnx|\bort\b|instantiate|compile/.test(m)) r.push('WASM / ONNX চালু হয়নি (init failed)');
   if (!ENV.simd) r.push('এই ব্রাউজারে WASM SIMD নেই: Chrome আপডেট করুন');
+  if (/ortrun|error code = 6|abort code|out of memory|bad_alloc/.test(m)) r.push('চালানোর সময় ফোনের মেমরি শেষ হয়ে যাচ্ছে। Chrome-এর অন্য সব ট্যাব ও অ্যাপ বন্ধ করে Chrome রিস্টার্ট করুন, শুধু এই ট্যাব খুলে আবার চেষ্টা করুন');
   if (/model load failed|unsupported model type/.test(m)) r.push('মডেল লোড হয়নি। সম্ভবত ফোনের মেমরি কম: Base মডেল নিন, অন্য অ্যাপ/ট্যাব বন্ধ করে আবার চেষ্টা করুন');
   if (/audio decode|decodeaudiodata|unsupported audio|corrupt/.test(m)) r.push('অডিও ফরম্যাট সাপোর্ট করছে না: MP3, WAV বা M4A দিন');
   if (!r.length) r.push('অজানা ত্রুটি: নিচের Debug log কপি করে পাঠান');
@@ -1404,6 +1431,7 @@ function renderTags() {
     (S.voice ? '<span class="tag ok">✅ Voice detected</span>' : '<span class="tag bad">⚠️ কথা পাওয়া যায়নি (প্রায় নীরব)</span>') +
     '<span class="tag">⏱ ' + fmtTime(S.duration) + '</span>' +
     '<span class="tag">🤖 ' + esc(m.name) + '</span>' +
+    '<span class="tag">⚙️ ' + esc(PROFILE_LABEL[curProfile()]) + '</span>' +
     '<span class="tag">🌐 ভাষা: বাংলা (bn), ট্রান্সক্রাইব</span>' +
     '<span class="tag">🧩 ' + S.chunks.length + 'টি অংশ</span>';
 }
@@ -1554,7 +1582,21 @@ function onDl(p) {
     setRow('model', { state: 'run', text: mb(L) + ' / ' + mb(T) + ' MB (' + pct.toFixed(0) + '%) · ' + dl.last, pct, ind: !T });
   }
 }
+function curProfile() { return S.engineSel === 'auto' ? LADDER[Math.min(S.ladderIdx, LADDER.length - 1)] : S.engineSel; }
+function nextProfile(reason) {
+  if (S.engineSel !== 'auto' || S.ladderIdx >= LADDER.length - 1) return false;
+  S.ladderIdx++;
+  log('warn', 'engine profile failed (' + reason + '). Switching to ' + PROFILE_LABEL[LADDER[S.ladderIdx]]);
+  toast('ইঞ্জিন বদলে ' + PROFILE_LABEL[LADDER[S.ladderIdx]] + ' দিয়ে চেষ্টা হচ্ছে');
+  renderTags(); updateEngineNote();
+  return true;
+}
+function updateEngineNote() {
+  const el = $('engineNote'); if (!el) return;
+  el.textContent = 'বর্তমান ইঞ্জিন: ' + PROFILE_LABEL[curProfile()] + (S.engineSel === 'auto' ? ' (অটো: ব্যর্থ হলে পরেরটা নিজে চেষ্টা করবে)' : ' (আপনার বাছাই করা)');
+}
 function onEngine(m) {
+  if (m.state === 'na') { setRow('engine', { state: 'ok', text: 'এই ইঞ্জিনে আলাদা ফাইল নেই, মডেলের সাথেই লোড হবে', pct: 100, ind: false }); return; }
   if (m.state === 'start') setRow('engine', { state: 'run', text: 'ডাউনলোড শুরু…', pct: 0, ind: true });
   else if (m.state === 'progress') {
     const known = m.total && m.loaded <= m.total;
@@ -1567,13 +1609,14 @@ function onPhase(name) {
   else if (name === 'model') setRow('model', { state: 'run', text: 'মডেল ফাইল অনুরোধ করা হচ্ছে…', pct: 0, ind: true });
 }
 async function loadEngineWithUi() {
-  const m = MODELS[S.modelKey];
-  if (Engine.ready && Engine.modelId === m.id) { setRow('model', { state: 'ok', text: m.name + ' প্রস্তুত (মেমরিতে আছে)', pct: 100, ind: false }); return; }
+  const m = MODELS[S.modelKey], prof = curProfile(), mid = modelIdFor(prof, S.modelKey);
+  if (Engine.ready && Engine.modelId === mid && Engine.profile === prof) { setRow('model', { state: 'ok', text: m.name + ' প্রস্তুত (মেমরিতে আছে)', pct: 100, ind: false }); return; }
   dl.files.clear(); dl.last = '';
   resetRows(['engine', 'model']);
   Engine.hooks = { onDl, onEngine, onPhase };
-  log('info', 'engine load ' + m.id);
-  try { await Engine.load(m.id); }
+  log('info', 'engine load ' + mid + ' profile=' + prof);
+  updateEngineNote();
+  try { await Engine.load(mid, prof); }
   catch (e) {
     if (!e || !e.stopped) {
       ['engine', 'model'].forEach(k => { if (rowState[k] && rowState[k].state === 'run') setRow(k, { state: 'err', ind: false, text: msgOf(e) }); });
@@ -1581,21 +1624,27 @@ async function loadEngineWithUi() {
     throw e;
   }
   setRow('engine', { state: rowState.engine && rowState.engine.state === 'warn' ? 'warn' : 'ok', ind: false, pct: 100 });
-  setRow('model', { state: 'ok', text: m.name + ' প্রস্তুত', pct: 100, ind: false });
+  setRow('model', { state: 'ok', text: m.name + ' প্রস্তুত (' + PROFILE_LABEL[prof] + ')', pct: 100, ind: false });
   refreshCacheBadge();
 }
 
-/* If Small cannot be loaded on this phone (usually memory), switch to Base automatically and retry once. */
+/* Load failure ladder: Small -> Base (memory), then next engine profile (auto mode). */
 async function loadEngineWithFallback() {
-  try { await loadEngineWithUi(); }
-  catch (e) {
-    if ((e && e.stopped) || S.modelKey !== 'small' || S.stop) throw e;
-    if (!/model load failed|unsupported model type|abort|alloc|memory|session/i.test(msgOf(e))) throw e;
-    log('warn', 'Small model failed on this device (' + msgOf(e) + '). Switching to Base automatically.');
-    toast('Small এই ফোনে লোড হয়নি, Base মডেলে চলছে');
-    S.modelKey = 'base'; LS.set('model', 'base'); $('model').value = 'base';
-    updateModelNote(); refreshCacheBadge(); renderTags(); hideErr();
-    await loadEngineWithUi();
+  for (;;) {
+    try { await loadEngineWithUi(); return; }
+    catch (e) {
+      if ((e && e.stopped) || S.stop) throw e;
+      const msg = msgOf(e);
+      if (S.modelKey === 'small' && /model load failed|unsupported model type|abort|alloc|memory|session|ortrun|error code/i.test(msg)) {
+        log('warn', 'Small model failed on this device (' + msg + '). Switching to Base automatically.');
+        toast('Small এই ফোনে লোড হয়নি, Base মডেলে চলছে');
+        S.modelKey = 'base'; LS.set('model', 'base'); $('model').value = 'base';
+        updateModelNote(); refreshCacheBadge(); renderTags(); hideErr();
+        continue;
+      }
+      if (nextProfile(msg)) { hideErr(); continue; }
+      throw e;
+    }
   }
 }
 
@@ -1674,7 +1723,9 @@ async function processChunk(ch) {
         try { Engine.terminate(); } catch (_) { /* ignore */ }
         continue;
       }
+      if (nextProfile(msgOf(e))) { try { Engine.terminate(); } catch (_) { /* ignore */ } attempt = 0; continue; }
       ch.status = 'failed'; ch.err = msgOf(e);
+      showErr('অংশ ' + (ch.i + 1) + ' ব্যর্থ হয়েছে', e);
       renderChips(); updateAsr(); saveNow();
       return;
     }
@@ -1799,6 +1850,17 @@ function init() {
   $('model').value = S.modelKey;
   $('model').onchange = onModelChange;
   updateModelNote(); refreshCacheBadge();
+  S.engineSel = LS.get('engine', 'auto');
+  if (S.engineSel !== 'auto' && !PROFILE_LABEL[S.engineSel]) S.engineSel = 'auto';
+  $('engineSel').innerHTML = '<option value="auto">অটো (সুপারিশকৃত)</option><option value="v3wasm">v3 WASM</option><option value="v2wasm">v2 WASM (পুরনো)</option>' +
+    (navigator.gpu ? '<option value="v3gpu">WebGPU (দ্রুত, পরীক্ষামূলক)</option>' : '');
+  $('engineSel').value = S.engineSel;
+  $('engineSel').onchange = () => {
+    if (S.running) { $('engineSel').value = S.engineSel; return; }
+    S.engineSel = $('engineSel').value; S.ladderIdx = 0; LS.set('engine', S.engineSel);
+    Engine.terminate(); updateEngineNote(); renderTags();
+  };
+  updateEngineNote();
 
   $('btnClearCache').onclick = async () => {
     if (S.running) { toast('চলার সময় ক্যাশ মুছবেন না'); return; }
