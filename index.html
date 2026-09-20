@@ -159,7 +159,7 @@ input[type=checkbox]{width:26px;height:26px;accent-color:var(--accent)}
   <header class="top">
     <div>
       <h1>Shorts Video Tool — Auto Bengali Transcription</h1>
-      <p class="sub">ভয়েস আপলোড করলেই বাংলা সাবটাইটেল তৈরি। সবকিছু আপনার ফোনের ব্রাউজারেই চলে, অডিও কোথাও আপলোড হয় না।</p>
+      <p class="sub">ভয়েস আপলোড করলেই বাংলা সাবটাইটেল তৈরি। সবকিছু আপনার ফোনের ব্রাউজারেই চলে, অডিও কোথাও আপলোড হয় না। <span class="mono">সংস্করণ v3</span></p>
     </div>
     <button id="themeBtn" class="btn sm icon" aria-label="থিম বদলান" title="থিম">🌓</button>
   </header>
@@ -216,6 +216,7 @@ input[type=checkbox]{width:26px;height:26px;accent-color:var(--accent)}
       <select id="model"></select>
       <div id="modelNote" class="small muted"></div>
       <div id="cacheBadge" class="small"></div>
+      <button id="btnClearCache" class="btn sm" type="button">🧹 মডেল ক্যাশ মুছুন</button>
     </div>
     <div class="field">
       <label for="maxChars">প্রতি লাইনে সর্বোচ্চ অক্ষর</label>
@@ -1584,6 +1585,20 @@ async function loadEngineWithUi() {
   refreshCacheBadge();
 }
 
+/* If Small cannot be loaded on this phone (usually memory), switch to Base automatically and retry once. */
+async function loadEngineWithFallback() {
+  try { await loadEngineWithUi(); }
+  catch (e) {
+    if ((e && e.stopped) || S.modelKey !== 'small' || S.stop) throw e;
+    if (!/model load failed|unsupported model type|abort|alloc|memory|session/i.test(msgOf(e))) throw e;
+    log('warn', 'Small model failed on this device (' + msgOf(e) + '). Switching to Base automatically.');
+    toast('Small এই ফোনে লোড হয়নি, Base মডেলে চলছে');
+    S.modelKey = 'base'; LS.set('model', 'base'); $('model').value = 'base';
+    updateModelNote(); refreshCacheBadge(); renderTags(); hideErr();
+    await loadEngineWithUi();
+  }
+}
+
 async function lockScreen() {
   try { if ('wakeLock' in navigator && !S.wakeLock) { S.wakeLock = await navigator.wakeLock.request('screen'); S.wakeLock.addEventListener('release', () => { S.wakeLock = null; }); } }
   catch (e) { log('warn', 'wake lock: ' + msgOf(e)); }
@@ -1604,7 +1619,7 @@ async function runTranscription(only) {
   lockScreen(); updateUI(); updateSummary();
   let fatal = null;
   try {
-    if (todo.some(c => !c.silent)) await loadEngineWithUi();
+    if (todo.some(c => !c.silent)) await loadEngineWithFallback();
     for (const ch of todo) {
       if (S.stop) break;
       await processChunk(ch);
@@ -1637,7 +1652,7 @@ async function processChunk(ch) {
   let attempt = 0;
   for (;;) {
     if (S.stop) { ch.status = 'pending'; throw Object.assign(new Error('stopped'), { stopped: true }); }
-    if (!Engine.ready) await loadEngineWithUi();          // engine load failure is fatal for the whole run
+    if (!Engine.ready) await loadEngineWithFallback();    // engine load failure is fatal for the whole run
     const t1 = performance.now();
     try {
       const a0 = Math.floor(ch.aStart * SR), a1 = Math.min(S.audio.length, Math.ceil(ch.aEnd * SR));
@@ -1784,6 +1799,14 @@ function init() {
   $('model').value = S.modelKey;
   $('model').onchange = onModelChange;
   updateModelNote(); refreshCacheBadge();
+
+  $('btnClearCache').onclick = async () => {
+    if (S.running) { toast('চলার সময় ক্যাশ মুছবেন না'); return; }
+    if (!confirm('ডাউনলোড করা মডেল মুছে যাবে, পরের বার আবার নামবে। মুছবেন?')) return;
+    try { Engine.terminate(); await caches.delete('transformers-cache'); toast('মডেল ক্যাশ মুছেছে'); log('info', 'model cache cleared'); }
+    catch (e) { toast('ক্যাশ মোছা যায়নি'); log('warn', 'cache clear failed: ' + msgOf(e)); }
+    refreshCacheBadge();
+  };
 
   // uploads
   $('voiceInput').onchange = e => { const f = e.target.files[0]; e.target.value = ''; loadVoice(f); };
