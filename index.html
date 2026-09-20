@@ -349,12 +349,27 @@ async function load(modelId) {
 
   send({ type: 'phase', name: 'model' });
   wlog('info', 'pipeline create ' + modelId);
-  asr = await tf.pipeline('automatic-speech-recognition', modelId, {
-    quantized: true,
-    progress_callback: function (p) {
-      send({ type: 'dl', p: { status: p.status, file: p.file, name: p.name, progress: p.progress, loaded: p.loaded, total: p.total } });
+  var pcb = function (p) {
+    send({ type: 'dl', p: { status: p.status, file: p.file, name: p.name, progress: p.progress, loaded: p.loaded, total: p.total } });
+  };
+  try {
+    asr = await tf.pipeline('automatic-speech-recognition', modelId, { quantized: true, progress_callback: pcb });
+  } catch (e) {
+    /* transformers.js tries several model classes and reports only the LAST error, which for Whisper is the misleading
+       "Unsupported model type: whisper". Load the model directly (files are cached) to reveal the real cause. */
+    if (/Unsupported model type/i.test(errText(e)) && tf.AutoModelForSpeechSeq2Seq) {
+      wlog('warn', 'pipeline() reported "' + errText(e) + '" (misleading). Probing the real cause...');
+      try {
+        await tf.AutoModelForSpeechSeq2Seq.from_pretrained(modelId, { quantized: true });
+        wlog('warn', 'direct model load unexpectedly succeeded');
+      } catch (e2) {
+        var real = errText(e2);
+        if (/^\d+$/.test(real)) real = 'WASM abort code ' + real + ' (usually out of memory)';
+        throw new Error('Model load failed: ' + real);
+      }
     }
-  });
+    throw e;
+  }
   wlog('info', 'pipeline ready');
   send({ type: 'ready', modelId: modelId });
 }
@@ -616,8 +631,8 @@ const mb = b => (b / 1048576).toFixed(1);
 
 const MODELS = {
   tiny:  { id: 'Xenova/whisper-tiny',  name: 'Whisper Tiny',  size: '~40 MB',  note: 'দ্রুত, কিন্তু বাংলায় প্রায়ই ভুল করে। শুধু টেস্টের জন্য।' },
-  base:  { id: 'Xenova/whisper-base',  name: 'Whisper Base',  size: '~80 MB',  note: 'মাঝারি গতি ও মান।' },
-  small: { id: 'Xenova/whisper-small', name: 'Whisper Small', size: '~250 MB', note: 'বাংলায় সবচেয়ে ভালো (সুপারিশকৃত), তবে ধীর ও বেশি মেমরি লাগে।' }
+  base:  { id: 'Xenova/whisper-base',  name: 'Whisper Base',  size: '~80 MB',  note: 'ফোনের জন্য নিরাপদ শুরু: মাঝারি গতি ও মান, কম মেমরি।' },
+  small: { id: 'Xenova/whisper-small', name: 'Whisper Small', size: '~250 MB', note: 'বাংলায় সবচেয়ে ভালো মান, তবে ধীর এবং অনেক মেমরি লাগে। কিছু ফোনে লোড ব্যর্থ হয়, তখন Base নিন।' }
 };
 
 const STYLE_DEFAULTS = {
@@ -629,7 +644,7 @@ const STYLE_DEFAULTS = {
 const S = {
   file: null, audio: null, energy: null, peaks: null, thr: 0.006, duration: 0, voice: false,
   chunks: [], lines: [], idSeq: 0, history: [],
-  modelKey: 'small', maxChars: 28, bnOnly: true,
+  modelKey: 'base', maxChars: 28, bnOnly: true,
   running: false, stop: false, t0: 0, stats: { sec: 0, ms: 0 }, elapsedTimer: 0,
   audioEl: null, audioUrl: null, playing: false,
   ctx: null, gain: null, streamDest: null, srcNode: null,
@@ -1339,10 +1354,11 @@ function explainError(msg) {
   if (ENV.blocked) r.push('লোকাল ফাইলের সিকিউরিটি বাধা: https:// হোস্টিং থেকে খুলুন');
   if (/timeout|no activity/.test(m)) r.push('ইঞ্জিন বা মডেল ডাউনলোড আটকে গেছে: ইন্টারনেট ধীর, অথবা cdn.jsdelivr.net / huggingface.co ব্লক (VPN, অ্যাডব্লকার, অফিস/স্কুল নেটওয়ার্ক)');
   if (/failed to fetch|networkerror|network|load failed|http \d{3}|cors|import/.test(m)) r.push('মডেল বা ইঞ্জিন ফাইল ডাউনলোড ব্যর্থ: ইন্টারনেট বা cdn.jsdelivr.net / huggingface.co এ প্রবেশ আছে কি দেখুন');
-  if (/memory|alloc|oom|out of|rangeerror|array buffer|crash/.test(m)) r.push('মেমরি সীমা: Base বা Tiny মডেল নিন, অন্য ট্যাব ও অ্যাপ বন্ধ করুন');
+  if (/memory|alloc|oom|out of|rangeerror|array buffer|crash|abort code/.test(m)) r.push('মেমরি সীমা: Base বা Tiny মডেল নিন, অন্য ট্যাব ও অ্যাপ বন্ধ করুন');
   if (/wasm|webassembly|onnx|\bort\b|instantiate|compile/.test(m)) r.push('WASM / ONNX চালু হয়নি (init failed)');
   if (!ENV.simd) r.push('এই ব্রাউজারে WASM SIMD নেই: Chrome আপডেট করুন');
-  if (/decode|unsupported|encoding|corrupt/.test(m)) r.push('অডিও ফরম্যাট সাপোর্ট করছে না: MP3, WAV বা M4A দিন');
+  if (/model load failed|unsupported model type/.test(m)) r.push('মডেল লোড হয়নি। সম্ভবত ফোনের মেমরি কম: Base মডেল নিন, অন্য অ্যাপ/ট্যাব বন্ধ করে আবার চেষ্টা করুন');
+  if (/audio decode|decodeaudiodata|unsupported audio|corrupt/.test(m)) r.push('অডিও ফরম্যাট সাপোর্ট করছে না: MP3, WAV বা M4A দিন');
   if (!r.length) r.push('অজানা ত্রুটি: নিচের Debug log কপি করে পাঠান');
   return r;
 }
@@ -1756,7 +1772,7 @@ function applyTheme(mode) {
 
 function init() {
   S.style = Object.assign({}, STYLE_DEFAULTS, LS.get('style', {}));
-  const sm = LS.get('model', 'small'); S.modelKey = MODELS[sm] ? sm : 'small';
+  const sm = LS.get('model', 'base'); S.modelKey = MODELS[sm] ? sm : 'base';
   S.audioEl = new Audio(); S.audioEl.preload = 'auto';
 
   // theme
@@ -1764,7 +1780,7 @@ function init() {
   $('themeBtn').onclick = () => { theme = theme === 'auto' ? 'dark' : theme === 'dark' ? 'light' : 'auto'; applyTheme(theme); toast('থিম: ' + (theme === 'auto' ? 'অটো' : theme === 'dark' ? 'ডার্ক' : 'লাইট')); };
 
   // model select
-  $('model').innerHTML = Object.keys(MODELS).map(k => '<option value="' + k + '">' + MODELS[k].name + ' (' + MODELS[k].size + ')' + (k === 'small' ? ' ⭐ সুপারিশকৃত' : k === 'tiny' ? ' ⚠️ বাংলায় দুর্বল' : '') + '</option>').join('');
+  $('model').innerHTML = Object.keys(MODELS).map(k => '<option value="' + k + '">' + MODELS[k].name + ' (' + MODELS[k].size + ')' + (k === 'base' ? ' ⭐ ফোনের জন্য নিরাপদ' : k === 'small' ? ' (সেরা মান, বেশি মেমরি)' : ' ⚠️ বাংলায় দুর্বল') + '</option>').join('');
   $('model').value = S.modelKey;
   $('model').onchange = onModelChange;
   updateModelNote(); refreshCacheBadge();
